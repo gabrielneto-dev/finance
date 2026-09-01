@@ -1,0 +1,4 @@
+import { currentUserId, apiError } from "@/server/api";
+import { prisma } from "@/lib/prisma";
+import { requireWorkspaceMember } from "@/server/auth";
+export async function GET(_: Request, { params }: { params: Promise<{ workspaceId: string }> }) { try { const { workspaceId } = await params; await requireWorkspaceMember(await currentUserId(), workspaceId); const invoices = await prisma.invoice.findMany({ where: { workspaceId }, include: { card: true, transactions: { select: { amount: true, type: true, status: true } } }, orderBy: { dueDate: "asc" } }); return Response.json(invoices.map((invoice) => ({ ...invoice, total: invoice.transactions.filter((transaction) => (transaction.type === "EXPENSE" || transaction.type === "REFUND") && transaction.status !== "CANCELLED").reduce((sum, transaction) => sum + Number(transaction.amount) * (transaction.type === "REFUND" ? -1 : 1), 0) }))); } catch (error) { return apiError(error); } }

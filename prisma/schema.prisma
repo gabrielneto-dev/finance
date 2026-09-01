@@ -1,0 +1,409 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CASH
+  INVESTMENT
+  OTHER
+}
+enum CardType {
+  CREDIT
+  PREPAID
+}
+enum TransactionType {
+  INCOME
+  EXPENSE
+  TRANSFER
+  INVOICE_PAYMENT
+  REFUND
+  ADJUSTMENT
+}
+enum TransactionModality {
+  ONE_TIME
+  RECURRING
+  INSTALLMENT
+}
+enum TransactionStatus {
+  PENDING_CONFIRMATION
+  PENDING
+  SCHEDULED
+  PAID
+  RECEIVED
+  COMPLETED
+  OVERDUE
+  CANCELLED
+}
+enum PaymentMethod {
+  PIX
+  DEBIT_CARD
+  CREDIT_CARD
+  CASH
+  BOLETO
+  BANK_TRANSFER
+  AUTO_DEBIT
+  OTHER
+}
+enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+enum InvoiceStatus {
+  OPEN
+  CLOSED
+  PAID
+  OVERDUE
+}
+enum IntegrationProvider {
+  PLUGGY
+}
+enum InstallmentPlanStatus {
+  ACTIVE
+  CANCELLED
+}
+enum BudgetScope {
+  GENERAL
+  CATEGORY
+}
+enum GoalProgressMode {
+  MANUAL
+  ACCOUNT_BALANCE
+}
+enum GoalStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  authSubject   String?  @unique @map("auth_subject")
+  name          String?
+  email         String?  @unique
+  image         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  memberships   WorkspaceMember[]
+  accounts      Account[] @relation("AccountCreatedBy")
+  transactions  FinancialTransaction[] @relation("TransactionCreatedBy")
+  installmentPlans InstallmentPlan[] @relation("InstallmentPlanCreatedBy")
+  authAccounts  AuthAccount[]
+  sessions      Session[]
+  @@map("users")
+}
+
+model Workspace {
+  id             String             @id @default(uuid()) @db.Uuid
+  name           String
+  baseCurrency   String             @default("BRL") @map("base_currency")
+  createdAt      DateTime           @default(now()) @map("created_at")
+  updatedAt      DateTime           @updatedAt @map("updated_at")
+  members        WorkspaceMember[]
+  institutions   Institution[]
+  accounts       Account[]
+  cards          Card[] 
+  categories     Category[]
+  transactions   FinancialTransaction[]
+  recurringRules RecurringRule[]
+  invoices       Invoice[]
+  integrations   IntegrationConnection[]
+  installmentPlans InstallmentPlan[]
+  budgets        Budget[]
+  goals          Goal[]
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  workspaceId String     @map("workspace_id") @db.Uuid
+  userId      String     @map("user_id") @db.Uuid
+  role        MemberRole @default(OWNER)
+  createdAt   DateTime   @default(now()) @map("created_at")
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@id([workspaceId, userId])
+  @@map("workspace_members")
+}
+
+model Institution {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String
+  logoUrl     String?   @map("logo_url")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  accounts    Account[]
+  cards       Card[]
+  @@unique([workspaceId, name])
+  @@map("institutions")
+}
+
+model Account {
+  id            String    @id @default(uuid()) @db.Uuid
+  workspaceId   String    @map("workspace_id") @db.Uuid
+  institutionId String?   @map("institution_id") @db.Uuid
+  createdById   String?   @map("created_by_id") @db.Uuid
+  name          String
+  type          AccountType
+  currency      String    @default("BRL")
+  initialBalance Decimal  @default(0) @map("initial_balance") @db.Decimal(18, 2)
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  createdBy     User?     @relation("AccountCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  cards         Card[]
+  recurringRules RecurringRule[]
+  transactions  FinancialTransaction[] @relation("TransactionAccount")
+  transferTo    FinancialTransaction[] @relation("TransferDestination")
+  goalAccounts  GoalAccount[]
+  @@index([workspaceId])
+  @@map("accounts")
+}
+
+model Card {
+  id            String    @id @default(uuid()) @db.Uuid
+  workspaceId   String    @map("workspace_id") @db.Uuid
+  institutionId String?   @map("institution_id") @db.Uuid
+  accountId     String    @map("account_id") @db.Uuid
+  name          String
+  type          CardType  @default(CREDIT)
+  lastFour      String?   @map("last_four") @db.VarChar(4)
+  creditLimit   Decimal?  @map("credit_limit") @db.Decimal(18, 2)
+  closingDay    Int       @map("closing_day")
+  dueDay        Int       @map("due_day")
+  active        Boolean   @default(true)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  account       Account   @relation(fields: [accountId], references: [id], onDelete: Restrict)
+  invoices      Invoice[]
+  transactions  FinancialTransaction[]
+  recurringRules RecurringRule[]
+  installmentPlans InstallmentPlan[]
+  @@index([workspaceId])
+  @@map("cards")
+}
+
+model Category {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String
+  kind        TransactionType
+  color       String?   @default("#245501")
+  icon        String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions FinancialTransaction[]
+  recurringRules RecurringRule[]
+  installmentPlans InstallmentPlan[]
+  budgets        Budget[]
+  @@unique([workspaceId, name, kind])
+  @@map("categories")
+}
+
+model Invoice {
+  id          String        @id @default(uuid()) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  cardId      String        @map("card_id") @db.Uuid
+  reference   DateTime      @db.Date
+  dueDate     DateTime      @map("due_date") @db.Date
+  status      InvoiceStatus @default(OPEN)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  card        Card          @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  transactions FinancialTransaction[]
+  @@unique([cardId, reference])
+  @@index([workspaceId, dueDate])
+  @@map("invoices")
+}
+
+model RecurringRule {
+  id          String              @id @default(uuid()) @db.Uuid
+  workspaceId String              @map("workspace_id") @db.Uuid
+  accountId   String?             @map("account_id") @db.Uuid
+  cardId      String?             @map("card_id") @db.Uuid
+  categoryId  String?             @map("category_id") @db.Uuid
+  type        TransactionType
+  frequency   RecurrenceFrequency
+  amount      Decimal             @db.Decimal(18, 2)
+  description String
+  nextRunAt   DateTime            @map("next_run_at") @db.Date
+  active      Boolean             @default(true)
+  createdAt   DateTime            @default(now()) @map("created_at")
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account     Account?            @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  card        Card?               @relation(fields: [cardId], references: [id], onDelete: SetNull)
+  category    Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  transactions FinancialTransaction[]
+  @@index([workspaceId, nextRunAt])
+  @@map("recurring_rules")
+}
+
+model FinancialTransaction {
+  id             String              @id @default(uuid()) @db.Uuid
+  workspaceId    String              @map("workspace_id") @db.Uuid
+  accountId      String?             @map("account_id") @db.Uuid
+  destinationAccountId String?       @map("destination_account_id") @db.Uuid
+  cardId         String?             @map("card_id") @db.Uuid
+  invoiceId      String?             @map("invoice_id") @db.Uuid
+  categoryId     String?             @map("category_id") @db.Uuid
+  recurringRuleId String?            @map("recurring_rule_id") @db.Uuid
+  installmentPlanId String?          @map("installment_plan_id") @db.Uuid
+  installmentNumber Int?             @map("installment_number")
+  createdById    String?             @map("created_by_id") @db.Uuid
+  type           TransactionType
+  modality       TransactionModality @default(ONE_TIME)
+  status         TransactionStatus   @default(PENDING)
+  paymentMethod  PaymentMethod       @map("payment_method")
+  amount         Decimal             @db.Decimal(18, 2)
+  description    String
+  occurredAt     DateTime            @map("occurred_at") @db.Date
+  externalId     String?             @map("external_id")
+  idempotencyKey String?             @map("idempotency_key")
+  transferGroupId String?            @map("transfer_group_id") @db.Uuid
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+  workspace      Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  account        Account?            @relation("TransactionAccount", fields: [accountId], references: [id], onDelete: Restrict)
+  destinationAccount Account?        @relation("TransferDestination", fields: [destinationAccountId], references: [id], onDelete: Restrict)
+  card           Card?               @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  invoice        Invoice?            @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  category       Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  recurringRule  RecurringRule?      @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
+  installmentPlan InstallmentPlan?   @relation(fields: [installmentPlanId], references: [id], onDelete: Restrict)
+  createdBy      User?               @relation("TransactionCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  @@unique([workspaceId, idempotencyKey])
+  @@unique([workspaceId, externalId])
+  @@index([workspaceId, occurredAt])
+  @@map("financial_transactions")
+}
+
+model InstallmentPlan {
+  id              String                @id @default(uuid()) @db.Uuid
+  workspaceId     String                @map("workspace_id") @db.Uuid
+  cardId          String                @map("card_id") @db.Uuid
+  categoryId      String                @map("category_id") @db.Uuid
+  createdById     String?               @map("created_by_id") @db.Uuid
+  description     String
+  totalAmount     Decimal               @map("total_amount") @db.Decimal(18, 2)
+  installments    Int
+  occurredAt      DateTime              @map("occurred_at") @db.Date
+  idempotencyKey  String?               @map("idempotency_key")
+  status          InstallmentPlanStatus @default(ACTIVE)
+  cancelledAt     DateTime?             @map("cancelled_at")
+  createdAt       DateTime              @default(now()) @map("created_at")
+  updatedAt       DateTime              @updatedAt @map("updated_at")
+  workspace       Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  card            Card                  @relation(fields: [cardId], references: [id], onDelete: Restrict)
+  category        Category              @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  createdBy       User?                 @relation("InstallmentPlanCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+  transactions    FinancialTransaction[]
+  @@index([workspaceId, status])
+  @@unique([workspaceId, idempotencyKey])
+  @@map("installment_plans")
+}
+
+model IntegrationConnection {
+  id          String              @id @default(uuid()) @db.Uuid
+  workspaceId String              @map("workspace_id") @db.Uuid
+  provider    IntegrationProvider
+  externalId  String              @map("external_id")
+  status      String              @default("PENDING")
+  createdAt   DateTime            @default(now()) @map("created_at")
+  workspace   Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  @@unique([workspaceId, provider, externalId])
+  @@map("integration_connections")
+}
+
+model Budget {
+  id          String      @id @default(uuid()) @db.Uuid
+  workspaceId String      @map("workspace_id") @db.Uuid
+  categoryId  String?     @map("category_id") @db.Uuid
+  scope       BudgetScope
+  periodStart DateTime    @map("period_start") @db.Date
+  periodEnd   DateTime    @map("period_end") @db.Date
+  amount      Decimal     @db.Decimal(18, 2)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+  workspace   Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  category    Category?   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  @@index([workspaceId, periodStart])
+  @@map("budgets")
+}
+
+model Goal {
+  id                  String           @id @default(uuid()) @db.Uuid
+  workspaceId         String           @map("workspace_id") @db.Uuid
+  name                String
+  targetAmount        Decimal          @map("target_amount") @db.Decimal(18, 2)
+  targetDate          DateTime?        @map("target_date") @db.Date
+  progressMode        GoalProgressMode @default(MANUAL) @map("progress_mode")
+  manualCurrentAmount Decimal?         @map("manual_current_amount") @db.Decimal(18, 2)
+  status              GoalStatus       @default(ACTIVE)
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  workspace           Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  accounts            GoalAccount[]
+  @@index([workspaceId, status])
+  @@map("goals")
+}
+
+model GoalAccount {
+  goalId            String   @map("goal_id") @db.Uuid
+  accountId         String   @map("account_id") @db.Uuid
+  allocationPercent Decimal  @default(100) @map("allocation_percent") @db.Decimal(5, 2)
+  goal              Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  account           Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  @@id([goalId, accountId])
+  @@map("goal_accounts")
+}
+
+model AuthAccount {
+  id String @id @default(cuid())
+  userId String @map("user_id") @db.Uuid
+  type String
+  provider String
+  providerAccountId String @map("provider_account_id")
+  refresh_token String? @db.Text
+  access_token String? @db.Text
+  expires_at Int?
+  token_type String?
+  scope String?
+  id_token String? @db.Text
+  session_state String?
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([provider, providerAccountId])
+  @@map("auth_accounts")
+}
+
+model Session {
+  id String @id @default(cuid())
+  sessionToken String @unique @map("session_token")
+  userId String @map("user_id") @db.Uuid
+  expires DateTime
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token String @unique
+  expires DateTime
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
