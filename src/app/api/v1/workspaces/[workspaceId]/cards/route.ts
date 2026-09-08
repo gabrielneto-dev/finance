@@ -1,7 +1,0 @@
-import { z } from "zod";
-import { currentUserId, apiError } from "@/server/api";
-import { prisma } from "@/lib/prisma";
-import { requireWorkspaceEditor, requireWorkspaceMember } from "@/server/auth";
-const schema = z.object({ name: z.string().trim().min(2), accountId: z.string().uuid(), institutionId: z.string().uuid().optional(), closingDay: z.coerce.number().int().min(1).max(31), dueDay: z.coerce.number().int().min(1).max(31), creditLimit: z.coerce.number().positive().optional(), lastFour: z.string().regex(/^\d{4}$/).optional() });
-export async function GET(_: Request, { params }: { params: Promise<{ workspaceId: string }> }) { try { const { workspaceId } = await params; await requireWorkspaceMember(await currentUserId(), workspaceId); return Response.json(await prisma.card.findMany({ where: { workspaceId }, include: { account: true, institution: true } })); } catch (error) { return apiError(error); } }
-export async function POST(request: Request, { params }: { params: Promise<{ workspaceId: string }> }) { try { const { workspaceId } = await params; await requireWorkspaceEditor(await currentUserId(), workspaceId); const data = schema.parse(await request.json()); const account = await prisma.account.findFirst({ where: { id: data.accountId, workspaceId } }); if (!account) return Response.json({ error: "Conta invalida." }, { status: 422 }); return Response.json(await prisma.card.create({ data: { ...data, workspaceId } }), { status: 201 }); } catch (error) { return apiError(error); } }
