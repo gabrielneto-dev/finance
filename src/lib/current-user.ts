@@ -1,4 +1,4 @@
-import { prisma } from "../lib/prisma.js";
+import { prisma } from "./prisma";
 
 let cachedUserId: string | null = null;
 

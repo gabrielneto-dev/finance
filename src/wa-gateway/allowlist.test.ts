@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { isSenderAllowed } from "./allowlist.js";
+import { isSenderAllowed } from "./allowlist";
 
 const ORIGINAL_ENV = process.env.ALLOWED_PHONES;
 

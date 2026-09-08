@@ -17,12 +17,14 @@ services:
       retries: 10
 
   api:
-    build: .
+    build:
+      context: .
+      target: api
     restart: unless-stopped
     env_file: .env
     environment:
       DATABASE_URL: postgresql://finance:finance@postgres:5432/finance?schema=public
-    command: ["node", "dist/server/index.js"]
+      PORT: "3000"
     ports:
       - "3000:3000"
     depends_on:
@@ -30,7 +32,9 @@ services:
         condition: service_healthy
 
   jobs:
-    build: .
+    build:
+      context: .
+      target: worker
     restart: unless-stopped
     env_file: .env
     environment:
@@ -41,7 +45,9 @@ services:
         condition: service_healthy
 
   wa-gateway:
-    build: .
+    build:
+      context: .
+      target: worker
     restart: unless-stopped
     env_file: .env
     environment:

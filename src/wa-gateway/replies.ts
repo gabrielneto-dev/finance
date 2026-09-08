@@ -1,4 +1,4 @@
-import { centsToBRL } from "../lib/money.js";
+import { centsToBRL } from "../lib/money";
 
 const TYPE_LABEL: Record<string, string> = { EXPENSE: "Gasto", INCOME: "Receita" };
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addByFrequency, addMonths, referenceMonthOf, resolveInvoicePeriod } from "./date.js";
+import { addByFrequency, addMonths, referenceMonthOf, resolveInvoicePeriod } from "./date";
 
 describe("addMonths", () => {
   it("soma meses simples", () => {

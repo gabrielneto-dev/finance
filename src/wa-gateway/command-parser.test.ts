@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseCommand } from "./command-parser.js";
+import { parseCommand } from "./command-parser";
 
 describe("parseCommand — mensagens sem comando", () => {
   it("retorna null para texto livre sem barra", () => {

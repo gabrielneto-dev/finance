@@ -1,4 +1,4 @@
-import { parseAmountToCents } from "../lib/money.js";
+import { parseAmountToCents } from "../lib/money";
 
 export type ParsedCommand =
   | {

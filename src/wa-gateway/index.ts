@@ -6,12 +6,12 @@ import makeWASocket, {
 import { Boom } from "@hapi/boom";
 import qrcodeTerminal from "qrcode-terminal";
 import pino from "pino";
-import { isSenderAllowed } from "./allowlist.js";
-import { parseCommand } from "./command-parser.js";
-import { parseWithLlm } from "./llm-parser.js";
-import * as api from "./api-client.js";
-import * as replies from "./replies.js";
-import { parseAmountToCents } from "../lib/money.js";
+import { isSenderAllowed } from "./allowlist";
+import { parseCommand } from "./command-parser";
+import { parseWithLlm } from "./llm-parser";
+import * as api from "./api-client";
+import * as replies from "./replies";
+import { parseAmountToCents } from "../lib/money";
 
 const SESSION_PATH = process.env.WA_SESSION_PATH ?? "./data/wa-session";
 const LLM_CONFIDENCE_THRESHOLD = Number(process.env.LLM_CONFIDENCE_THRESHOLD ?? 0.6);

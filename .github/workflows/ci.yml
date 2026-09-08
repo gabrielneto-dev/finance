@@ -49,5 +49,8 @@ jobs:
       - name: Testes de integração
         run: npm run test:integration
 
-      - name: Build de produção
+      - name: Build da API (Next.js)
         run: npm run build
+
+      - name: Build dos workers (wa-gateway, jobs)
+        run: npm run build:workers

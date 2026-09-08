@@ -24,7 +24,7 @@ WhatsApp (número secundário) ⇄ Baileys ⇄ wa-gateway (processo long-running
                                               └─ fallback: Claude API (extração em linguagem natural)
                                               │
                                               ▼
-                                     API interna (Fastify)
+                                     API interna (Next.js Route Handlers)
                                               │
                                               ▼
                                      Postgres (Prisma)
@@ -34,9 +34,19 @@ WhatsApp (número secundário) ⇄ Baileys ⇄ wa-gateway (processo long-running
 ```
 
 Três processos separados, um Postgres:
-- `api`: REST interna, protegida por `X-Api-Key`.
-- `wa-gateway`: mantém a sessão WhatsApp viva (Baileys), interpreta mensagens, chama a API.
-- `jobs`: gera transações de recorrências vencidas e transiciona status de faturas, diariamente.
+- `api`: Next.js (App Router, `app/api/**/route.ts`), protegida por `X-Api-Key` via `proxy.ts`. Escolhida
+  porque o plano é evoluir para um dashboard web depois, no mesmo projeto — sem isso, Fastify seria mais
+  simples para uma API pura. `output: "standalone"` gera um servidor Node autossuficiente para produção.
+- `wa-gateway`: mantém a sessão WhatsApp viva (Baileys), interpreta mensagens, chama a API. **Não roda em
+  serverless/Vercel** — precisa de um processo Node de longa duração com WebSocket persistente, então
+  continua compilado à parte (via `tsup`) e rodando em container próprio.
+- `jobs`: gera transações de recorrências vencidas e transiciona status de faturas, diariamente. Mesma
+  razão do wa-gateway: roda como processo Node standalone, fora do Next.js.
+
+`src/lib` e `src/services` (regra de negócio, sem framework) são compartilhados pelos três: a API os
+importa diretamente, `wa-gateway`/`jobs` os importam e viram bundle via `tsup`. Dois `tsconfig` cobrem
+isso — `tsconfig.json` é o do Next.js (bundler resolution), `tsconfig.workers.json` faz só type-check
+para o mundo `tsup`/Node — mas o `npm run typecheck` roda os dois.
 
 ## Por que Baileys, e o risco que isso carrega
 
@@ -57,7 +67,7 @@ docker compose up -d postgres
 npm run prisma:migrate
 npm run seed
 
-npm run dev:api    # terminal 1
+npm run dev:api    # terminal 1 — next dev
 npm run dev:jobs   # terminal 2
 npm run dev:wa     # terminal 3 — escaneie o QR code com o WhatsApp do número dedicado ao bot
 ```
@@ -83,8 +93,8 @@ dados reais por engano caso o `.env.test` aponte, por descuido, para o banco de 
 
 **CI**: `.github/workflows/ci.yml` roda a cada push e pull request — sobe um Postgres de serviço,
 gera o Prisma Client, roda `typecheck`, os testes unitários, aplica as migrations no banco de teste,
-roda os testes de integração e valida o `build` de produção. Qualquer um desses passos falhando
-quebra o CI.
+roda os testes de integração e valida os dois builds de produção (`next build` da API e `tsup` dos
+workers). Qualquer um desses passos falhando quebra o CI.
 
 ## Uso via WhatsApp
 
@@ -118,8 +128,18 @@ docker compose logs -f wa-gateway   # escaneie o QR na primeira vez
 docker compose exec api npx prisma migrate deploy
 ```
 
+O `Dockerfile` tem dois targets: `api` (Next.js `output: "standalone"`, imagem enxuta) e `worker`
+(`wa-gateway`/`jobs`, bundle via `tsup`). Ambos rodam em `node:20-alpine` (musl, não glibc) — por isso
+`prisma/schema.prisma` declara `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]`. Sem isso, o
+Prisma só gera o engine da plataforma onde rodou `prisma generate` (normalmente glibc/debian), que não
+carrega dentro do Alpine — a API subiria e o `/api/health` responderia normalmente, mas qualquer rota
+que tocasse o banco quebraria em runtime só dentro do container. Se um dia trocar a imagem base do
+Dockerfile para uma não-Alpine, ajuste (ou remova) esse `binaryTarget`.
+
 ## O que fica fora do escopo (de propósito)
 
 - Multiusuário / múltiplos workspaces — é uso pessoal, single-user.
 - Rastreamento detalhado de posições de investimento (cotas, rentabilidade por ativo) — investimento entra como `Account` tipo `INVESTMENT`, aportes/resgates são `Transaction`s normais.
-- Dashboard web — o canal primário de entrada é o WhatsApp; consulta via API pode virar UI depois.
+- Dashboard web — o canal primário de entrada continua sendo o WhatsApp. A API já está em Next.js
+  justamente para viabilizar um dashboard depois (`app/` ganharia páginas ao lado das rotas `app/api/`),
+  mas nenhuma UI foi construída ainda.

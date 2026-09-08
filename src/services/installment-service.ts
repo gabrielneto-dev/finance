@@ -1,8 +1,8 @@
 import type { InstallmentPlan } from "@prisma/client";
-import { prisma } from "../lib/prisma.js";
-import { addMonths } from "../lib/date.js";
-import { splitEvenly } from "../lib/money.js";
-import { createTransaction } from "./transaction-service.js";
+import { prisma } from "../lib/prisma";
+import { addMonths } from "../lib/date";
+import { splitEvenly } from "../lib/money";
+import { createTransaction } from "./transaction-service";
 
 export interface CreateInstallmentPlanInput {
   userId: string;

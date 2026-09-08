@@ -5,7 +5,7 @@ import {
   createTestAccount,
   createTestCard,
   testPrisma,
-} from "../testing/db.js";
+} from "../testing/db";
 import {
   confirmTransaction,
   createTransaction,
@@ -14,7 +14,7 @@ import {
   getLastTransaction,
   TransactionValidationError,
   updateTransactionFields,
-} from "./transaction-service.js";
+} from "./transaction-service";
 
 let userId: string;
 

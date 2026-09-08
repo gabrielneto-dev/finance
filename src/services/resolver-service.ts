@@ -1,6 +1,6 @@
 import type { Account, Card, Category, TxType } from "@prisma/client";
-import { prisma } from "../lib/prisma.js";
-import { normalize } from "../lib/normalize.js";
+import { prisma } from "../lib/prisma";
+import { normalize } from "../lib/normalize";
 
 function matches(hint: string, name: string, aliases: string[]): boolean {
   const normalizedHint = normalize(hint);

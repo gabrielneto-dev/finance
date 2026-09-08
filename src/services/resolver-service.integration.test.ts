@@ -6,8 +6,8 @@ import {
   createTestCard,
   createTestCategory,
   testPrisma,
-} from "../testing/db.js";
-import { resolveAccount, resolveCard, resolveCategory } from "./resolver-service.js";
+} from "../testing/db";
+import { resolveAccount, resolveCard, resolveCategory } from "./resolver-service";
 
 let userId: string;
 

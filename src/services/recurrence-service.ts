@@ -1,6 +1,6 @@
-import { prisma } from "../lib/prisma.js";
-import { addByFrequency } from "../lib/date.js";
-import { createTransaction } from "./transaction-service.js";
+import { prisma } from "../lib/prisma";
+import { addByFrequency } from "../lib/date";
+import { createTransaction } from "./transaction-service";
 
 const MAX_OCCURRENCES_PER_RUN = 60;
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetDatabase, createTestUser, createTestAccount, testPrisma } from "../testing/db.js";
-import { generateDueRecurrences } from "./recurrence-service.js";
+import { resetDatabase, createTestUser, createTestAccount, testPrisma } from "../testing/db";
+import { generateDueRecurrences } from "./recurrence-service";
 
 let userId: string;
 let accountId: string;

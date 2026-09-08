@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalize } from "./normalize.js";
+import { normalize } from "./normalize";
 
 describe("normalize", () => {
   it("remove acentos", () => {

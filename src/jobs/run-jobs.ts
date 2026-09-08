@@ -1,7 +1,7 @@
 import "dotenv/config";
 import cron from "node-cron";
-import { generateDueRecurrences } from "../services/recurrence-service.js";
-import { closeDueInvoices, markOverdueInvoices } from "../services/invoice-service.js";
+import { generateDueRecurrences } from "../services/recurrence-service";
+import { closeDueInvoices, markOverdueInvoices } from "../services/invoice-service";
 
 async function runOnce(): Promise<void> {
   const generated = await generateDueRecurrences();

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetDatabase, createTestUser, createTestCard, testPrisma } from "../testing/db.js";
+import { resetDatabase, createTestUser, createTestCard, testPrisma } from "../testing/db";
 import {
   closeDueInvoices,
   findOrCreateInvoice,
   markOverdueInvoices,
   recalculateInvoiceTotal,
-} from "./invoice-service.js";
+} from "./invoice-service";
 
 let userId: string;
 let cardId: string;

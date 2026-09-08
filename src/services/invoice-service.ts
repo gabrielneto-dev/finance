@@ -1,6 +1,6 @@
 import type { Invoice } from "@prisma/client";
-import { prisma } from "../lib/prisma.js";
-import { resolveInvoicePeriod } from "../lib/date.js";
+import { prisma } from "../lib/prisma";
+import { resolveInvoicePeriod } from "../lib/date";
 
 export async function findOrCreateInvoice(
   cardId: string,

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetDatabase, createTestUser, createTestCard, testPrisma } from "../testing/db.js";
-import { createInstallmentPlan, InstallmentValidationError } from "./installment-service.js";
+import { resetDatabase, createTestUser, createTestCard, testPrisma } from "../testing/db";
+import { createInstallmentPlan, InstallmentValidationError } from "./installment-service";
 
 let userId: string;
 

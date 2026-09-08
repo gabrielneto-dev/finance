@@ -1,6 +1,6 @@
 import type { Transaction, TxOrigin, TxStatus, TxType } from "@prisma/client";
-import { prisma } from "../lib/prisma.js";
-import { findOrCreateInvoice, recalculateInvoiceTotal } from "./invoice-service.js";
+import { prisma } from "../lib/prisma";
+import { findOrCreateInvoice, recalculateInvoiceTotal } from "./invoice-service";
 
 export interface CreateTransactionInput {
   userId: string;
