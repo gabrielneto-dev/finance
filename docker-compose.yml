@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: finance
+      POSTGRES_PASSWORD: finance
+      POSTGRES_DB: finance
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance?schema=public
+    command: ["node", "dist/server/index.js"]
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  jobs:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance?schema=public
+    command: ["node", "dist/jobs/run-jobs.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  wa-gateway:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance?schema=public
+      API_BASE_URL: http://api:3000
+    command: ["node", "dist/wa-gateway/index.js"]
+    volumes:
+      - wa-session:/app/data/wa-session
+    depends_on:
+      - api
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres-data:
+  wa-session:
