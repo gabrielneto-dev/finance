@@ -234,7 +234,13 @@ async function start() {
     for (const msg of m.messages) {
       if (msg.key.fromMe) continue;
       const jid = msg.key.remoteJid;
-      if (!jid || !isSenderAllowed(jid)) continue;
+      if (!jid) continue;
+      // O WhatsApp pode endereçar o remetente por LID (msg.key.remoteJid termina em
+      // "@lid") em vez do número de telefone. Quando isso acontece, o Baileys expõe o
+      // número real em msg.key.senderPn — é ele que precisa bater com ALLOWED_PHONES,
+      // não o LID (que não tem relação numérica com o telefone).
+      const senderIdentity = msg.key.senderPn ?? jid;
+      if (!isSenderAllowed(senderIdentity)) continue;
 
       const text =
         msg.message?.conversation ?? msg.message?.extendedTextMessage?.text ?? "";
