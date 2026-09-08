@@ -60,6 +60,25 @@ npm run dev:jobs   # terminal 2
 npm run dev:wa     # terminal 3 — escaneie o QR code com o WhatsApp do número dedicado ao bot
 ```
 
+## Testes
+
+Dois níveis: unitários (funções puras, sem banco) e de integração (services contra um Postgres real).
+
+```bash
+npm run test               # unitários — lib/, wa-gateway/command-parser, allowlist
+
+cp .env.test.example .env.test   # aponte para um banco DIFERENTE do de desenvolvimento
+npm run test:integration:setup   # aplica as migrations no banco de teste
+npm run test:integration         # services — transaction, installment, recurrence, invoice, resolver
+
+npm run test:all            # os dois
+```
+
+Os testes de integração truncam todas as tabelas do banco antes de cada teste (`resetDatabase()` em
+`src/testing/db.ts`). Por segurança, `src/testing/setup-integration.ts` recusa rodar se a
+`DATABASE_URL` não contiver a palavra "test" no nome do banco — isso existe para não zerar seus
+dados reais por engano caso o `.env.test` aponte, por descuido, para o banco de desenvolvimento.
+
 ## Uso via WhatsApp
 
 Comandos estruturados (rápidos, sem custo de LLM):
