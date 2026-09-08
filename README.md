@@ -21,7 +21,7 @@ Controle financeiro pessoal com captura de transações via WhatsApp.
 WhatsApp (número secundário) ⇄ Baileys ⇄ wa-gateway (processo long-running)
                                               │
                                               ├─ comando estruturado (/g, /r, ...)
-                                              └─ fallback: Claude API (extração em linguagem natural)
+                                              └─ fallback: Claude API ou Groq API (extração em linguagem natural)
                                               │
                                               ▼
                                      API interna (Next.js Route Handlers)
@@ -60,7 +60,7 @@ Baileys não é uma biblioteca oficial da Meta — é engenharia reversa do prot
 
 ```bash
 cp .env.example .env
-# edite .env: ALLOWED_PHONES com seu número, ANTHROPIC_API_KEY, API_KEY
+# edite .env: ALLOWED_PHONES com seu número, API_KEY, e a chave do LLM_PROVIDER escolhido
 
 npm install
 docker compose up -d postgres
@@ -111,13 +111,25 @@ Comandos estruturados (rápidos, sem custo de LLM):
 /ajuda
 ```
 
-Mensagens em linguagem natural (fallback via Claude API):
+Mensagens em linguagem natural (fallback via LLM):
 
 ```
 gastei 45 no ifood no crédito do nubank
 ```
 
 Se a extração tiver baixa confiança, o bot cria a transação como pendente e pede confirmação (`/ok`) antes de considerá-la definitiva.
+
+### Provedor do fallback LLM
+
+`LLM_PROVIDER` no `.env` escolhe entre `anthropic` (default) e `groq`. Preencha só as credenciais do
+provedor escolhido (`ANTHROPIC_API_KEY`/`ANTHROPIC_MODEL` ou `GROQ_API_KEY`/`GROQ_MODEL`) — o outro pode
+ficar vazio. Os dois usam o mesmo esquema de extração (mesma tool/function definition), então trocar de
+provedor não muda o comportamento dos comandos, só qual API processa o texto livre.
+
+Groq hospeda modelos open-source (o default aqui é `openai/gpt-oss-20b`) com inferência muito mais barata
+que qualquer modelo proprietário — é a opção consistente se o motivo da escolha for custo. Para uma
+mensagem curta como essas, o custo real é baixo com qualquer um dos dois: mesmo com Claude Sonnet, cada
+mensagem em linguagem natural fica na casa de fração de centavo de dólar.
 
 ## Deploy (produção)
 
