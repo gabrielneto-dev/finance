@@ -1,5 +1,7 @@
 # Finance
 
+[![CI](https://github.com/gabrielneto-dev/finance/actions/workflows/ci.yml/badge.svg)](https://github.com/gabrielneto-dev/finance/actions/workflows/ci.yml)
+
 Controle financeiro pessoal com captura de transações via WhatsApp.
 
 ## Domínio
@@ -78,6 +80,11 @@ Os testes de integração truncam todas as tabelas do banco antes de cada teste 
 `src/testing/db.ts`). Por segurança, `src/testing/setup-integration.ts` recusa rodar se a
 `DATABASE_URL` não contiver a palavra "test" no nome do banco — isso existe para não zerar seus
 dados reais por engano caso o `.env.test` aponte, por descuido, para o banco de desenvolvimento.
+
+**CI**: `.github/workflows/ci.yml` roda a cada push e pull request — sobe um Postgres de serviço,
+gera o Prisma Client, roda `typecheck`, os testes unitários, aplica as migrations no banco de teste,
+roda os testes de integração e valida o `build` de produção. Qualquer um desses passos falhando
+quebra o CI.
 
 ## Uso via WhatsApp
 
