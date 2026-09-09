@@ -137,16 +137,31 @@ mensagem em linguagem natural fica na casa de fração de centavo de dólar.
 cp .env.example .env   # preencha com valores reais
 docker compose up -d --build
 docker compose logs -f wa-gateway   # escaneie o QR na primeira vez
-docker compose exec api npx prisma migrate deploy
+docker compose exec jobs npx prisma migrate deploy
+docker compose exec jobs npm run seed
 ```
 
+Rode `migrate deploy`/`seed` no container **`jobs`** (ou `wa-gateway`), nunca em `api`: o target `api`
+é o build `standalone` do Next.js, que só empacota dependências de runtime — não tem `prisma` CLI nem
+`tsx` (são devDependencies). Rodar `npx prisma` ali baixa uma versão nova da internet em vez de usar a
+instalada no projeto, e `npm run seed` falha com "tsx: not found". O target `worker` (usado por
+`jobs`/`wa-gateway`) copia o `node_modules` completo do estágio de build, então tem tudo.
+
 O `Dockerfile` tem dois targets: `api` (Next.js `output: "standalone"`, imagem enxuta) e `worker`
-(`wa-gateway`/`jobs`, bundle via `tsup`). Ambos rodam em `node:20-alpine` (musl, não glibc) — por isso
-`prisma/schema.prisma` declara `binaryTargets = ["native", "linux-musl-openssl-3.0.x"]`. Sem isso, o
-Prisma só gera o engine da plataforma onde rodou `prisma generate` (normalmente glibc/debian), que não
-carrega dentro do Alpine — a API subiria e o `/api/health` responderia normalmente, mas qualquer rota
-que tocasse o banco quebraria em runtime só dentro do container. Se um dia trocar a imagem base do
-Dockerfile para uma não-Alpine, ajuste (ou remova) esse `binaryTarget`.
+(`wa-gateway`/`jobs`, bundle via `tsup`). Todos os estágios (`deps`, `build`, `api`, `worker`) rodam em
+`node:20-alpine` (musl, não glibc) — por isso `prisma/schema.prisma` declara
+`binaryTargets = ["native", "linux-musl-openssl-3.0.x"]`, garantindo que o engine gerado seja compatível
+com musl mesmo que o estágio de build mude para uma base glibc no futuro.
+
+Isso sozinho não é suficiente: a imagem `-alpine` não inclui OpenSSL — o Node usa uma cópia estática
+interna que não fica disponível para outros binários linkarem. O query engine do Prisma é um binário Rust
+à parte que faz *dynamic linking* contra a `libssl` do sistema; sem o pacote instalado, o Prisma nem
+consegue detectar a versão (gera o aviso "Prisma failed to detect the libssl/openssl version") e falha ao
+carregar o engine com `Error loading shared library libssl.so.1.1: No such file or directory`. Por isso o
+Dockerfile roda `apk add --no-cache openssl` em todo estágio alpine que usa o Prisma Client (`deps`,
+herdado por `build`, mais `api` e `worker` — cada `FROM node:20-alpine` é uma imagem nova, sem pacotes de
+estágios anteriores). Se um dia trocar a imagem base do Dockerfile para uma não-Alpine (Debian/Ubuntu, que
+já vêm com OpenSSL), esses `apk add` somem e o `binaryTarget` musl deixa de ser necessário.
 
 ## O que fica fora do escopo (de propósito)
 
