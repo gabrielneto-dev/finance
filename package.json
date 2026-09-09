@@ -1,0 +1,55 @@
+{
+  "name": "finance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev:api": "next dev",
+    "dev:wa": "tsx watch src/wa-gateway/index.ts",
+    "dev:jobs": "tsx watch src/jobs/run-jobs.ts",
+    "build": "next build",
+    "build:workers": "tsup",
+    "start:api": "next start",
+    "start:wa": "node dist/wa-gateway/index.js",
+    "start:jobs": "node dist/jobs/run-jobs.js",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
+    "seed": "tsx prisma/seed.ts",
+    "test": "vitest run --config vitest.config.ts",
+    "test:integration:setup": "dotenv -e .env.test -- prisma migrate deploy",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:all": "npm run test && npm run test:integration",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.workers.json"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.1",
+    "@hapi/boom": "^10.0.1",
+    "@prisma/client": "^5.22.0",
+    "@whiskeysockets/baileys": "^6.7.9",
+    "dotenv": "^16.4.5",
+    "groq-sdk": "^1.6.0",
+    "next": "^16.3.4",
+    "node-cron": "^3.0.3",
+    "pino": "^9.5.0",
+    "qrcode-terminal": "^0.12.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/qrcode-terminal": "^0.12.2",
+    "@types/react": "^19.2.8",
+    "dotenv-cli": "^7.4.4",
+    "prisma": "^5.22.0",
+    "tsup": "^8.5.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

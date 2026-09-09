@@ -1,0 +1,76 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: finance
+      POSTGRES_PASSWORD: finance
+      POSTGRES_DB: finance
+    ports:
+      # Host 5433 -> container 5432. Não usa 5432 no host de propósito: é a porta
+      # padrão do Postgres, muita máquina já tem algo nela (Postgres nativo, outro
+      # projeto Docker). Os outros serviços deste compose falam com "postgres:5432"
+      # (porta interna, sem mudança) — só quem conecta a partir do host (DBeaver,
+      # psql local) usa 5433.
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance?schema=public
+      PORT: "3000"
+    ports:
+      # Host 3002 -> container 3000. 3000/3001 já costumam estar ocupadas por
+      # outros dev servers no host. wa-gateway/jobs falam com "api:3000" (porta
+      # interna, sem mudança) — só quem acessa a partir do host (curl, navegador)
+      # usa 3002. Se esta também colidir, troque só o número antes de ":3000"
+      # aqui e rode "docker compose up -d --build" de novo.
+      - "3002:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  jobs:
+    build:
+      context: .
+      target: worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance?schema=public
+    command: ["node", "dist/jobs/run-jobs.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  wa-gateway:
+    build:
+      context: .
+      target: worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://finance:finance@postgres:5432/finance?schema=public
+      API_BASE_URL: http://api:3000
+    command: ["node", "dist/wa-gateway/index.js"]
+    volumes:
+      - wa-session:/app/data/wa-session
+    depends_on:
+      - api
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres-data:
+  wa-session:

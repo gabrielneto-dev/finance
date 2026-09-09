@@ -1,0 +1,280 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CASH
+  INVESTMENT
+}
+
+enum TxType {
+  INCOME
+  EXPENSE
+  TRANSFER
+}
+
+enum TxStatus {
+  PENDING
+  CONFIRMED
+}
+
+enum TxOrigin {
+  MANUAL
+  WHATSAPP
+  RECURRING
+  INSTALLMENT
+}
+
+enum RecFrequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum InvoiceStatus {
+  OPEN
+  CLOSED
+  PAID
+  OVERDUE
+}
+
+enum InstallmentStatus {
+  SCHEDULED
+  BILLED
+  PAID
+}
+
+enum ParseStatus {
+  PARSED
+  NEEDS_CONFIRMATION
+  FAILED
+  IGNORED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  accounts         Account[]
+  cards            Card[]
+  categories       Category[]
+  transactions     Transaction[]
+  installmentPlans InstallmentPlan[]
+  recurrences      Recurrence[]
+  whatsappMessages WhatsAppMessage[]
+
+  @@map("users")
+}
+
+model Account {
+  id                 String      @id @default(uuid())
+  userId             String      @map("user_id")
+  name               String
+  aliases            String[]    @default([])
+  type               AccountType
+  initialBalanceCents Int        @default(0) @map("initial_balance_cents")
+  archived           Boolean     @default(false)
+  createdAt          DateTime    @default(now()) @map("created_at")
+  updatedAt          DateTime    @updatedAt @map("updated_at")
+
+  user                    User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cards                   Card[]
+  transactionsFrom        Transaction[] @relation("TxAccount")
+  transactionsTo          Transaction[] @relation("TxDestinationAccount")
+  recurrences             Recurrence[]
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Card {
+  id               String   @id @default(uuid())
+  userId           String   @map("user_id")
+  name             String
+  aliases          String[] @default([])
+  accountId        String?  @map("account_id")
+  creditLimitCents Int      @map("credit_limit_cents")
+  closingDay       Int      @map("closing_day")
+  dueDay           Int      @map("due_day")
+  archived         Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account          Account?          @relation(fields: [accountId], references: [id])
+  transactions     Transaction[]
+  installmentPlans InstallmentPlan[]
+  invoices         Invoice[]
+  recurrences      Recurrence[]
+
+  @@index([userId])
+  @@map("cards")
+}
+
+model Category {
+  id       String  @id @default(uuid())
+  userId   String  @map("user_id")
+  name     String
+  aliases  String[] @default([])
+  type     TxType
+  parentId String? @map("parent_id")
+  icon     String?
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parent       Category?     @relation("CategoryChildren", fields: [parentId], references: [id])
+  children     Category[]    @relation("CategoryChildren")
+  transactions Transaction[]
+  installmentPlans InstallmentPlan[]
+  recurrences  Recurrence[]
+
+  @@index([userId])
+  @@map("categories")
+}
+
+model Transaction {
+  id                    String     @id @default(uuid())
+  userId                String     @map("user_id")
+  date                  DateTime
+  description           String
+  amountCents           Int        @map("amount_cents")
+  type                  TxType
+  status                TxStatus   @default(CONFIRMED)
+  origin                TxOrigin   @default(MANUAL)
+  accountId             String?    @map("account_id")
+  cardId                String?    @map("card_id")
+  destinationAccountId  String?    @map("destination_account_id")
+  categoryId            String?    @map("category_id")
+  installmentId         String?    @unique @map("installment_id")
+  recurrenceId          String?    @map("recurrence_id")
+  invoiceId             String?    @map("invoice_id")
+  sourceMessageId       String?    @map("source_message_id")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  updatedAt             DateTime   @updatedAt @map("updated_at")
+
+  user                User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account             Account?    @relation("TxAccount", fields: [accountId], references: [id])
+  destinationAccount  Account?    @relation("TxDestinationAccount", fields: [destinationAccountId], references: [id])
+  card                Card?       @relation(fields: [cardId], references: [id])
+  category            Category?   @relation(fields: [categoryId], references: [id])
+  installment         Installment? @relation(fields: [installmentId], references: [id])
+  recurrence          Recurrence? @relation(fields: [recurrenceId], references: [id])
+  invoice             Invoice?    @relation(fields: [invoiceId], references: [id])
+  sourceMessage       WhatsAppMessage? @relation(fields: [sourceMessageId], references: [id])
+
+  @@index([userId, date])
+  @@index([accountId])
+  @@index([cardId])
+  @@index([invoiceId])
+  @@map("transactions")
+}
+
+model InstallmentPlan {
+  id                String   @id @default(uuid())
+  userId            String   @map("user_id")
+  description       String
+  totalAmountCents  Int      @map("total_amount_cents")
+  installmentsCount Int      @map("installments_count")
+  cardId            String   @map("card_id")
+  categoryId        String?  @map("category_id")
+  firstDueDate      DateTime @map("first_due_date")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card         Card          @relation(fields: [cardId], references: [id])
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  installments Installment[]
+
+  @@index([userId])
+  @@map("installment_plans")
+}
+
+model Installment {
+  id                 String            @id @default(uuid())
+  installmentPlanId  String            @map("installment_plan_id")
+  number             Int
+  amountCents        Int               @map("amount_cents")
+  dueDate            DateTime          @map("due_date")
+  invoiceId          String?           @map("invoice_id")
+  status             InstallmentStatus @default(SCHEDULED)
+
+  installmentPlan InstallmentPlan @relation(fields: [installmentPlanId], references: [id], onDelete: Cascade)
+  invoice         Invoice?        @relation(fields: [invoiceId], references: [id])
+  transaction     Transaction?
+
+  @@unique([installmentPlanId, number])
+  @@index([invoiceId])
+  @@map("installments")
+}
+
+model Recurrence {
+  id          String       @id @default(uuid())
+  userId      String       @map("user_id")
+  description String
+  amountCents Int          @map("amount_cents")
+  type        TxType
+  frequency   RecFrequency
+  interval    Int          @default(1)
+  accountId   String?      @map("account_id")
+  cardId      String?      @map("card_id")
+  categoryId  String?      @map("category_id")
+  startDate   DateTime     @map("start_date")
+  endDate     DateTime?    @map("end_date")
+  nextRunDate DateTime     @map("next_run_date")
+  active      Boolean      @default(true)
+  createdAt   DateTime     @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  account      Account?      @relation(fields: [accountId], references: [id])
+  card         Card?         @relation(fields: [cardId], references: [id])
+  category     Category?     @relation(fields: [categoryId], references: [id])
+  transactions Transaction[]
+
+  @@index([userId])
+  @@index([active, nextRunDate])
+  @@map("recurrences")
+}
+
+model Invoice {
+  id                  String        @id @default(uuid())
+  cardId              String        @map("card_id")
+  referenceMonth      String        @map("reference_month")
+  closingDate         DateTime      @map("closing_date")
+  dueDate             DateTime      @map("due_date")
+  status              InvoiceStatus @default(OPEN)
+  totalAmountCents    Int           @default(0) @map("total_amount_cents")
+  paymentTransactionId String?      @unique @map("payment_transaction_id")
+
+  card         Card          @relation(fields: [cardId], references: [id])
+  transactions Transaction[]
+  installments Installment[]
+
+  @@unique([cardId, referenceMonth])
+  @@map("invoices")
+}
+
+model WhatsAppMessage {
+  id                    String      @id @default(uuid())
+  userId                String      @map("user_id")
+  rawText               String      @map("raw_text")
+  parsedPayload         Json?       @map("parsed_payload")
+  parseStatus           ParseStatus @map("parse_status")
+  resultingTransactionId String?    @map("resulting_transaction_id")
+  createdAt             DateTime    @default(now()) @map("created_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([userId, createdAt])
+  @@map("whatsapp_messages")
+}
