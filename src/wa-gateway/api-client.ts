@@ -13,7 +13,20 @@ async function request<T>(
       ...init?.headers,
     },
   });
-  const data = response.status === 204 ? (undefined as T) : ((await response.json()) as T);
+
+  const rawBody = await response.text();
+  let data: T;
+  if (rawBody === "") {
+    data = undefined as T;
+  } else {
+    try {
+      data = JSON.parse(rawBody) as T;
+    } catch {
+      throw new Error(
+        `Resposta inesperada de ${API_BASE_URL}/api${path}: HTTP ${response.status}, corpo não é JSON: ${rawBody.slice(0, 300)}`,
+      );
+    }
+  }
   return { ok: response.ok, status: response.status, data };
 }
 
