@@ -31,7 +31,11 @@ services:
       DATABASE_URL: postgresql://finance:finance@postgres:5432/finance?schema=public
       PORT: "3000"
     ports:
-      - "3000:3000"
+      # Host 3001 -> container 3000. 3000 é a porta padrão de mil dev servers
+      # (Next.js, React, etc.) — comum já estar ocupada no host por outro projeto
+      # rodando fora do Docker. wa-gateway/jobs falam com "api:3000" (porta interna,
+      # sem mudança) — só quem acessa a partir do host (curl, navegador) usa 3001.
+      - "3001:3000"
     depends_on:
       postgres:
         condition: service_healthy
