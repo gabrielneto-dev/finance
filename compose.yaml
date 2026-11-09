@@ -1,0 +1,32 @@
+services:
+  web:
+    build: ./apps/web
+    image: finance-web:local
+    env_file: .env
+    environment:
+      FINANCE_DB_PATH: /data/finance.sqlite
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - finance_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  worker:
+    image: finance-web:local
+    depends_on:
+      web:
+        condition: service_healthy
+    command: ["node", "scripts/worker.mjs"]
+    env_file: .env
+    environment:
+      FINANCE_DB_PATH: /data/finance.sqlite
+    volumes:
+      - finance_data:/data
+    restart: unless-stopped
+    stop_grace_period: 90s
+volumes:
+  finance_data:

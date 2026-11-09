@@ -1,0 +1,21 @@
+sdd_version: 1
+mode: adaptive
+complexity_levels: [trivial, lightweight, full, critical]
+persistence:
+  operational_state: automatic
+  checkpoint_on_task_completion: true
+  checkpoint_on_phase_transition: true
+  general_context_save: existing_policy
+context:
+  integration: true
+  progressive_loading: true
+  duplicate_knowledge: false
+quality:
+  require_acceptance_criteria: true
+  require_verification_for_completion: true
+  preserve_traceability: true
+  detect_spec_drift: true
+safety:
+  preserve_existing_files: true
+  allow_secrets: false
+  require_approval_for_destructive_actions: true

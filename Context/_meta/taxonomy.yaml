@@ -1,0 +1,18 @@
+version: 1
+branches: [produto, pluggy, global]
+types:
+  FCT: fact
+  RES: research
+  DEC: decision
+  ASM: assumption
+  QUE: question
+  PLN: plan
+  RSK: risk
+  NTE: note
+  SRC: source
+  SUM: summary
+  EXP: experiment
+  CP: checkpoint
+canonical_tags: [escopo, plataformas, pluggy, sandbox, seguranca, bootstrap]
+statuses: [active, open, answered, planned, experimental, blocked, superseded, deprecated, archived]
+confidence: [low, medium, high, verified]
