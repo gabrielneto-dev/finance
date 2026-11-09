@@ -1,12 +1,12 @@
 # Estado do desenvolvimento
 
-Atualizado em 2026-11-08.
+Atualizado em 2026-11-09.
 
 - Funcionalidade em foco. [SPEC-0001](features/SPEC-0001--mvp-finance/spec.md), MVP web com SQLite para os dados financeiros e Android previsto para etapa posterior.
 - Próxima etapa. Para homologação pública, configurar Supabase Auth e publicar web e worker atrás do domínio HTTPS. Depois, conferir a entrega pelo Dashboard da Pluggy. [Roteiro de teste](../README.md#testar-a-entrega-pelo-dashboard-da-pluggy). Android em etapa posterior.
 - Provedor. Connect Token emitido e escopo validado na API. O widget web abriu e aguarda o aceite dos termos para provar o callback. Retorno no Android e entrega de webhook pendentes.
 - Progresso. SPEC-0001-T001 e SPEC-0001-T007 concluídas. A prova autenticada de leitura, paginação e reimportação em SQLite passou com dados sintéticos. A interface web está implementada e foi validada na demonstração. Os critérios completos, incluindo Android e homologação externa, permanecem nas [tarefas](features/SPEC-0001--mvp-finance/tasks.md) e na [verificação](features/SPEC-0001--mvp-finance/verification.md).
-- Contexto para retomar. [Checkpoint do Finance com Pluggy real](../Context/checkpoints/CP-20261108-finance-real.md), [Produto](../Context/branches/produto/_index.md) e [Pluggy](../Context/branches/pluggy/_index.md).
+- Contexto para retomar. [Checkpoint de validação web](../Context/checkpoints/CP-20261109-validacao-web.md), [Produto](../Context/branches/produto/_index.md) e [Pluggy](../Context/branches/pluggy/_index.md).
 - Escopo da interface. O usuário aprovou a direção da prévia e pediu divisões por data, horário, gastos, formas de pagamento, cartões e faturas. Os requisitos REQ-006 e REQ-007 foram registrados na spec.
 - Entrega web. Aplicação em `apps/web`, painel responsivo, worker de sincronização, sino de notificações e Compose para o servidor. [Evidências](features/SPEC-0001--mvp-finance/verification.md#versão-web).
 - Integração real. A importação do Item existente passou na API real da Pluggy, com o banco em memória. O painel permite vincular o Item autorizado no servidor e acompanhar o estado do último webhook por conexão. A entrega HTTPS pelo provedor aguarda homologação. [Evidência](features/SPEC-0001--mvp-finance/verification.md#integração-real-e-teste-de-webhook).
@@ -23,3 +23,4 @@ Atualizado em 2026-11-08.
 - Filtros e gastos (REQ-006). Filtros combinados, estado vazio, totais por situação, moeda e categoria ausente coincidiram com o SQLite no painel real. Sem horário e sem forma cobertos por teste unitário. Android pendente. [Evidência](features/SPEC-0001--mvp-finance/verification.md#filtros-e-gastos).
 - Atualização MeuPluggy. A Pluggy recusa atualização pedida pela API para conexões MeuPluggy. O Atualizar agora reimporta o que a Pluggy já sincronizou. O worker encerra erros definitivos e registra o motivo. Validado no painel real. [Detalhes](features/SPEC-0001--mvp-finance/pluggy-data.md#atualização-de-conexões-meupluggy).
 - Lançamentos ainda a caminho (REQ-015). Descartado. O aviso foi removido a pedido do usuário, que o considerou poluição visual. Compras do cartão chegam do banco com dois a três dias de atraso. [Registro](features/SPEC-0001--mvp-finance/verification.md#lançamentos-ainda-a-caminho).
+- Repositório. Git criado em 2026-11-09, com o commit inicial `687eea5` publicado em `gabrielneto-dev/finance`, que é público. Contexto para retomar em [checkpoint](../Context/checkpoints/CP-20261109-validacao-web.md).

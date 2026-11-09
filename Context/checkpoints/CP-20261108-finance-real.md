@@ -4,9 +4,10 @@ type: "checkpoint"
 title: "Finance com Pluggy real e acompanhamento de ciclos"
 branch: "global"
 tags: ["escopo", "plataformas", "pluggy", "sandbox", "seguranca"]
-status: "active"
+status: "superseded"
+superseded_by: "CTX-CP-20261109-validacao-web"
 created_at: "2026-11-08"
-updated_at: "2026-11-08"
+updated_at: "2026-11-09"
 supersedes: ["CTX-CP-20261108-mvp-web"]
 related: ["CTX-DEC-20261108-pluggy-web-mobile", "CTX-DEC-20261108-acesso-finance", "CTX-DEC-20261108-ciclos-cartao", "CTX-RES-20261108-fluxo-pluggy", "CTX-RSK-20261108-isolamento"]
 ---
