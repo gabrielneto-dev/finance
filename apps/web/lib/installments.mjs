@@ -43,6 +43,18 @@ function cycleMonth(cycles, date, today) {
   return dateText(close + median(gaps)).slice(0, 7);
 }
 
+// Mês de vencimento do ciclo aberto na data de referência, o mesmo dado às parcelas pendentes sem fatura.
+export function openCycleMonth(bills, card, reference) {
+  return cycleMonth(closingCycles(bills).get(card.itemId + "/" + card.id), reference, dayNumber(reference));
+}
+
+// Mediana recente, em dias, entre fechamento e vencimento das faturas oficiais do cartão.
+export function dueGap(bills, card) {
+  const gaps = (closingCycles(bills).get(card.itemId + "/" + card.id) ?? []).slice(-RECENT_CYCLES)
+    .filter(({ due }) => due !== null).map(({ close, due }) => due - close);
+  return gaps.length ? median(gaps) : null;
+}
+
 // reference aceita AAAA-MM ou AAAA-MM-DD; o dia identifica faturas oficiais ainda abertas.
 export function installmentSchedule(entries, bills, reference) {
   const fromMonth = reference.slice(0, 7);
@@ -57,11 +69,14 @@ export function installmentSchedule(entries, bills, reference) {
         !Number.isInteger(installments) || installments < 2 ||
         !Number.isInteger(installment) || installment < 1 || installment > installments) continue;
     const billKey = cardKey(entry) + "/" + entry.billId;
-    // PENDING sem fatura pertence ao ciclo aberto. billForecastDate pode repetir o mês da compra.
+    // PENDING sem fatura pertence ao ciclo aberto. billForecastDate pode repetir o mês da compra,
+    // mas uma previsão posterior ao ciclo aberto indica parcela futura enviada antes da hora.
     const openCycle = entry.status === "PENDING" && !entry.billId;
+    const pendingMonth = openCycle
+      ? [cycleMonth(cycles.get(cardKey(entry)), entry.date, today), entry.billForecastMonth].filter(isMonth).sort().at(-1)
+      : null;
     const month = [
-      billMonths.get(billKey), openCycle ? cycleMonth(cycles.get(cardKey(entry)), entry.date, today) : null,
-      entry.billForecastMonth, entry.installmentMonth, entry.date?.slice(0, 7),
+      billMonths.get(billKey), pendingMonth, entry.billForecastMonth, entry.installmentMonth, entry.date?.slice(0, 7),
     ].find(isMonth);
     if (!month) continue;
     const row = {
@@ -96,6 +111,13 @@ export function installmentSchedule(entries, bills, reference) {
       }
     }
   }
-  return schedule.sort((a, b) => a.month.localeCompare(b.month) || Number(a.estimated) - Number(b.estimated) ||
+  // O provedor pode trocar o identificador do plano entre parcelas. A previsão cede lugar
+  // à parcela real do mesmo cartão, mês e posição com valor próximo.
+  const position = (row) => [cardKey(row), row.currency, row.month, row.installment, row.installments].join("/");
+  const real = new Map();
+  for (const row of schedule) if (!row.estimated) real.set(position(row), [...real.get(position(row)) ?? [], row.amount]);
+  const near = (a, b) => Math.abs(a - b) <= Math.max(100, 0.05 * Math.max(Math.abs(a), Math.abs(b)));
+  const covered = (row) => (real.get(position(row)) ?? []).some((amount) => near(amount, row.amount));
+  return schedule.filter((row) => !row.estimated || !covered(row)).sort((a, b) => a.month.localeCompare(b.month) || Number(a.estimated) - Number(b.estimated) ||
     a.description.localeCompare(b.description) || a.installment - b.installment);
 }

@@ -4,6 +4,7 @@ import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { installmentSchedule } from "./installments.mjs";
 import { cardCycle } from "./card-cycle.mjs";
+import { openBill } from "./open-bill.mjs";
 
 export function openDatabase(filename) {
   if (filename !== ":memory:") mkdirSync(dirname(resolve(filename)), { recursive: true, mode: 0o700 });
@@ -53,6 +54,10 @@ export function openDatabase(filename) {
   const hasDetails = () => db.prepare("PRAGMA table_info(connections)").all().some(({ name }) => name === "details");
   if (!hasDetails()) atomic(db, () => {
     if (!hasDetails()) db.exec("ALTER TABLE connections ADD COLUMN details TEXT");
+  });
+  const hasLabel = () => db.prepare("PRAGMA table_info(connections)").all().some(({ name }) => name === "label");
+  if (!hasLabel()) atomic(db, () => {
+    if (!hasLabel()) db.exec("ALTER TABLE connections ADD COLUMN label TEXT");
   });
   db.exec("CREATE INDEX IF NOT EXISTS jobs_webhooks ON jobs(item_id, received_at DESC) WHERE received_at IS NOT NULL");
   return db;
@@ -140,6 +145,21 @@ function createConnection(db, item, owner) {
   return true;
 }
 
+export const CONNECTION_LABEL_MAX = 40;
+
+// Nome escolhido pelo proprietário; vazio restaura o nome do conector (REQ-020).
+export function normalizeLabel(value) {
+  if (typeof value !== "string" || /[\u0000-\u001f\u007f]/.test(value)) return undefined;
+  const label = value.replace(/\s+/g, " ").trim();
+  if (label.length > CONNECTION_LABEL_MAX) return undefined;
+  return label || null;
+}
+
+export function renameConnection(db, owner, itemId, label) {
+  return db.prepare("UPDATE connections SET label=? WHERE id=? AND owner=? AND active=1")
+    .run(label, itemId, owner).changes === 1;
+}
+
 export function saveConnectionDetails(db, item) {
   const products = (values) => Array.isArray(values)
     ? [...new Set(values.filter((value) => typeof value === "string" && /^[A-Z][A-Z_]{0,59}$/.test(value)))].slice(0, 30)
@@ -180,13 +200,14 @@ export function notifyTransfers(db, itemId, entries) {
   }
 }
 
-export function dashboard(db, owner, from, to, scheduleFrom = "", billId = "", cycleDate = "") {
+export function dashboard(db, owner, from, to, scheduleFrom = "", billId = "", cycleDate = "", openDate = "") {
   const owned = "JOIN connections c ON c.id=t.item_id WHERE c.owner=? AND c.active=1";
   const select = (table) => db.prepare(`SELECT t.item_id,t.data FROM ${table} t ${owned}`).all(owner)
     .map((row) => ({ ...JSON.parse(row.data), itemId: row.item_id }));
   const bills = select("bills");
   const accounts = select("accounts");
-  const cardCycles = cycleDate ? accounts.filter((card) => card.type === "CREDIT").map((card) => {
+  const cycleReference = cycleDate || openDate;
+  const cardCycles = cycleReference ? accounts.filter((card) => card.type === "CREDIT").map((card) => {
     const cardBills = bills.filter((bill) => bill.itemId === card.itemId && bill.accountId === card.id);
     // Compra parcelada posterior pode conservar a data original da compra.
     const activity = card.closes || cardBills.some((bill) => bill.closes) ? [] : db.prepare(`
@@ -198,14 +219,27 @@ export function dashboard(db, owner, from, to, scheduleFrom = "", billId = "", c
         AND COALESCE(json_extract(t.data,'$.installment'),1)<=1
         AND t.date<=?
       GROUP BY b.id
-    `).all(owner, card.itemId, card.id, cycleDate);
-    return cardCycle(card, cardBills, activity, cycleDate);
+    `).all(owner, card.itemId, card.id, cycleReference);
+    return cardCycle(card, cardBills, activity, cycleReference);
   }) : null;
-  const installmentEntries = scheduleFrom ? db.prepare(`
+  const installmentEntries = scheduleFrom || openDate ? db.prepare(`
     SELECT t.item_id,t.data FROM entries t
     JOIN accounts a ON a.item_id=t.item_id AND a.id=t.account_id
     ${owned} AND json_extract(a.data,'$.type')='CREDIT' AND json_extract(t.data,'$.installments')>1
   `).all(owner).map((row) => ({ ...JSON.parse(row.data), itemId: row.item_id })) : [];
+  const openBills = openDate ? (() => {
+    const unbilled = db.prepare(`
+      SELECT t.item_id,t.data FROM entries t
+      JOIN accounts a ON a.item_id=t.item_id AND a.id=t.account_id
+      ${owned} AND json_extract(a.data,'$.type')='CREDIT' AND json_extract(t.data,'$.billId') IS NULL
+    `).all(owner).map((row) => ({ ...JSON.parse(row.data), itemId: row.item_id }));
+    const schedule = installmentSchedule(installmentEntries, bills, openDate);
+    return accounts.filter((card) => card.type === "CREDIT").flatMap((card) => {
+      const cycle = cardCycles.find((row) => row.itemId === card.itemId && row.accountId === card.id);
+      const bill = openBill({ card, bills, entries: unbilled, schedule, cycle, reference: openDate });
+      return bill ? [bill] : [];
+    });
+  })() : null;
   const billPurchases = billId ? db.prepare(`
     SELECT t.item_id,t.data FROM entries t
     JOIN bills b ON b.item_id=t.item_id AND b.account_id=t.account_id AND b.id=json_extract(t.data,'$.billId')
@@ -213,18 +247,19 @@ export function dashboard(db, owner, from, to, scheduleFrom = "", billId = "", c
     ORDER BY t.date DESC,json_extract(t.data,'$.time') DESC,t.id
   `).all(owner, billId).map((row) => ({ ...JSON.parse(row.data), itemId: row.item_id })) : [];
   return {
-    connections: db.prepare(`SELECT c.id,c.name,c.status,c.synced_at AS syncedAt,c.active,c.details,
+    connections: db.prepare(`SELECT c.id,c.name,c.label,c.status,c.synced_at AS syncedAt,c.active,c.details,
       j.kind AS webhookEvent,j.received_at AS webhookReceivedAt,
       CASE WHEN j.id IS NULL THEN NULL WHEN j.done=1 THEN 'processed' WHEN j.done=2 THEN 'ignored'
         WHEN j.tries>0 AND j.until=0 THEN 'retry' ELSE 'queued' END AS webhookStatus
       FROM connections c LEFT JOIN jobs j ON j.rowid=(
         SELECT rowid FROM jobs WHERE item_id=c.id AND received_at IS NOT NULL
         ORDER BY received_at DESC,rowid DESC LIMIT 1
-      ) WHERE c.owner=? ORDER BY c.name`).all(owner)
+      ) WHERE c.owner=? ORDER BY COALESCE(c.label,c.name),c.id`).all(owner)
       .map(({ details, ...row }) => ({ ...row, details: details ? JSON.parse(details) : null })),
     accounts,
     bills,
-    ...(cardCycles ? { cardCycles } : {}),
+    ...(cycleDate ? { cardCycles } : {}),
+    ...(openBills ? { openBills } : {}),
     ...(scheduleFrom ? { installments: installmentSchedule(installmentEntries, bills, scheduleFrom) } : {}),
     ...(billId ? { billPurchases: { id: billId, entries: billPurchases } } : {}),
     entries: db.prepare(`SELECT t.data,t.item_id FROM entries t ${owned} AND t.date BETWEEN ? AND ?

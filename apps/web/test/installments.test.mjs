@@ -129,3 +129,30 @@ test("usa a fatura oficial ainda aberta como ciclo das parcelas pendentes", (t) 
   // Sem a data de referência, o comportamento anterior é mantido para chamadas por mês.
   assert.equal(months("2026-11")[0][0], 1);
 });
+
+test("respeita o mês previsto de parcelas futuras e troca a previsão pela parcela real de outro plano", (t) => {
+  const db = openDatabase(":memory:");
+  t.after(() => db.close());
+  db.prepare("INSERT INTO connections(id,owner,name,status,baseline) VALUES(?,?,?,?,?)")
+    .run(itemId, "owner", "Banco sintético", "CONECTADA", "2026-08-01");
+  const bills = [
+    { id: id(60), accountId, closes: "2026-09-11", due: "2026-09-16" },
+    { id: id(61), accountId, closes: "2026-10-11", due: "2026-10-16" },
+  ];
+  // O provedor envia todas as parcelas pendentes com a data da compra e o mês previsto de cada fatura.
+  // A primeira parcela chega com outra descrição e, portanto, outro plano.
+  const parcel = (n, installmentNumber, billForecastDate, description = "Compra sintética", amount = "17.37") =>
+    normalizeTransaction({
+      id: id(n), accountId, date: "2026-10-22T00:00:00Z", description, currencyCode: "BRL",
+      amount, type: "DEBIT", status: "PENDING",
+      creditCardMetadata: {
+        purchaseDate: "2026-10-22T12:00:00Z", installmentNumber, totalInstallments: 3, billForecastDate,
+      },
+    }, accountId);
+  writeBatch(db, itemId, [{ id: accountId, type: "CREDIT" }], [
+    parcel(70, 1, "2026-11", "Compra sintética loja", "17.41"), parcel(71, 2, "2026-12"), parcel(72, 3, "2027-01"),
+  ], bills);
+  const rows = dashboard(db, "owner", "2026-11-01", "2026-11-08", "2026-11-10").installments
+    .map(({ installment, month, estimated }) => [installment, month, estimated]);
+  assert.deepEqual(rows, [[1, "2026-11", false], [2, "2026-12", false], [3, "2027-01", false]]);
+});

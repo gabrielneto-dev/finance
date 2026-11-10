@@ -69,3 +69,21 @@ Classificação Critical por calcular uma data financeira. Usar dados oficiais d
 ## Ocultar saldos e faturas
 
 Classificação Lightweight. A mudança fica na interface e não altera API, banco ou integração. Um contexto React guarda a preferência, e cada ponto que exibe saldo, limite ou fatura aplica a máscara. Lançamentos individuais e agregados de movimentação seguem visíveis, porque o usuário pediu para ocultar apenas valores de conta e fatura. A preferência fica no `localStorage` do navegador. Validar no painel local alternando o botão em Visão geral, Cartões, Faturas e Conexões e conferir a persistência após recarregar.
+
+## Valor bloqueado na conta
+
+Classificação Lightweight. A Pluggy informa o saldo disponível em `balance` e o saldo contábil em `bankData.closingBalance`. Um depósito em cheque ainda não compensado entra no contábil antes do disponível, e a diferença aparece como bloqueada. Calcular na interface, por moeda, a partir das contas já exibidas no Saldo atual, sem alterar API ou banco. Só exibir diferença positiva. Validar com teste unitário e no painel com a conexão real.
+
+## Depósito em cheque bloqueado
+
+Classificação Lightweight. A Pluggy não informa bloqueio por lançamento, então a marcação é inferida na interface. Considerar créditos da própria conta e moeda com categoria `Transfer - Check` ou descrição com "cheque", dos sete dias anteriores à data de referência, porque a compensação leva poucos dias úteis e a sincronização tem até um dia de atraso. Percorrer do mais recente ao mais antigo e marcar enquanto a soma couber no valor bloqueado da conta. Parar no primeiro que não couber, para não marcar cheques antigos já compensados. A situação Bloqueado substitui Efetivada e explica a origem no título. Mover o cálculo de saldos para `lib/balances.ts`, com testes próprios.
+
+## Fatura aberta pelo ciclo do cartão
+
+Classificação Critical por exibir uma estimativa financeira. Substitui o bloco "Compras pendentes no período", que somava compras pendentes dentro do filtro de datas e omitia parcelas. O backend autenticado calcula a fatura aberta quando o painel pede `open=1`, com o escopo do proprietário. O ciclo aberto usa o mesmo mês de vencimento que o cronograma de parcelas atribui a lançamentos pendentes sem fatura, e o fechamento usa a data do REQ-014. O vencimento é o fechamento somado à mediana dos intervalos recentes entre fechamento e vencimento. Só é exibido se cair no mês do ciclo.
+
+Entram as compras sem fatura com situação pendente ou efetivadas depois do último fechamento oficial, exceto parcelas e pagamentos de fatura. Créditos sem fatura, como estornos, reduzem o valor. As parcelas vêm do cronograma do REQ-013 para o mês de vencimento, separadas entre importadas e previstas, sem contar a mesma parcela duas vezes. Riscos: o banco pode lançar encargos, ajustes ou compras atrasadas que mudam o valor. Por isso o bloco fica identificado como estimativa, e a fatura oficial continua sendo a referência. A mudança é aditiva à API e reversível sem alterar dados armazenados.
+
+## Renomear conexões
+
+Classificação Full, com controle de acesso. Conexões MeuPluggy chegam todas com o nome do conector, e a sincronização regrava `connections.name`. Adicionar a coluna opcional `label`, migrada como as anteriores com `ALTER TABLE` idempotente. A ação `rename` da API de conexões valida origem, sessão e propriedade, normaliza espaços, recusa caracteres de controle e limita o nome a 40 caracteres. Vazio grava `NULL`. O painel recebe `label` junto de `name` e exibe o primeiro disponível. A migração é aditiva. Para reverter, basta ignorar a coluna.

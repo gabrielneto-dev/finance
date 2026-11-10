@@ -1,0 +1,41 @@
+import { dateText, dayNumber } from "./card-cycle.mjs";
+import { dueGap, openCycleMonth } from "./installments.mjs";
+
+const STALE_PENDING_DAYS = 31;
+const sameCard =(card) => (row) => row.itemId === card.itemId && row.accountId === card.id;
+
+function totals(rows, sign = () => 1) {
+  const byCurrency = new Map();
+  for (const row of rows) byCurrency.set(row.currency, (byCurrency.get(row.currency) ?? 0) + sign(row) * row.amount);
+  return Array.from(byCurrency, ([currency, amount]) => ({ amount, currency }));
+}
+
+// Estimativa da fatura aberta pelo ciclo do cartão, sem depender do filtro de datas (REQ-019).
+// entries: lançamentos do cartão sem fatura; schedule: cronograma de parcelas a partir da referência.
+export function openBill({ card, bills, entries, schedule, cycle, reference }) {
+  const cardBills = bills.filter(sameCard(card));
+  const month = openCycleMonth(cardBills, card, reference);
+  if (!month) return null;
+  const lastClosing = cycle?.lastClosing ?? null;
+  // Pendente anterior ao ciclo fechado por último é autorização que não se confirmou.
+  const previousClosing = lastClosing === null ? null : cardBills.map((bill) => bill.closes)
+    .filter((closes) => typeof closes === "string" && closes < lastClosing).sort().at(-1) ??
+    dateText(dayNumber(lastClosing) - STALE_PENDING_DAYS);
+  const purchases = entries.filter(sameCard(card)).filter((row) => !row.billId && row.method !== "Fatura" &&
+    (row.installments ?? 1) <= 1 && (lastClosing === null ? row.status === "PENDING"
+      : row.date > lastClosing || (row.status === "PENDING" && row.date > previousClosing)));
+  const installments = schedule.filter(sameCard(card)).filter((row) => row.month === month);
+  const imported = installments.filter((row) => !row.estimated);
+  const estimated = installments.filter((row) => row.estimated);
+  const signed = (row) => row.direction === "CREDIT" ? -1 : 1;
+
+  const closes = cycle?.nextClosing ?? null;
+  const gap = dueGap(cardBills, card);
+  const due = closes && gap !== null ? dateText(dayNumber(closes) + gap) : null;
+  return {
+    itemId: card.itemId, accountId: card.id, month, closes, due: due?.slice(0, 7) === month ? due : null,
+    purchases: totals(purchases, signed), imported: totals(imported), estimated: totals(estimated),
+    total: totals([...purchases.map((row) => ({ ...row, amount: signed(row) * row.amount })), ...installments]),
+    count: purchases.length + installments.length,
+  };
+}

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { owner } from "@/lib/auth";
-import { atomic, bind, bindExisting, connection, database, enqueue } from "@/lib/db.mjs";
+import { atomic, bind, bindExisting, CONNECTION_LABEL_MAX, connection, database, enqueue, normalizeLabel, renameConnection } from "@/lib/db.mjs";
 import { existingItemId, origin, sandbox, uuid } from "@/lib/config.mjs";
 import { pluggy } from "@/lib/pluggy.mjs";
 
@@ -82,6 +82,11 @@ export async function POST(request: Request) {
     }
 
     if (!linked || !linked.active) return response({ error: "Conexão indisponível." }, 404);
+    if (action === "rename") {
+      const label = normalizeLabel(body.label);
+      if (label === undefined) return response({ error: "Use um nome com até " + CONNECTION_LABEL_MAX + " caracteres." }, 400);
+      return renameConnection(db, user, itemId, label) ? response({ ok: true }) : response({ error: "Conexão indisponível." }, 404);
+    }
     if (action === "refresh" || action === "disconnect") {
       atomic(db, () => {
         const current = connection(db, itemId);

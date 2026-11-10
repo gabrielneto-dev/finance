@@ -1,13 +1,15 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ArrowDownLeft, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, CreditCard, Eye, EyeOff, Filter, Landmark, LayoutGrid, Link2, List, LogOut, Plus, ReceiptText, RefreshCw, Wallet, X } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { Activity, ArrowDownLeft, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, CreditCard, Eye, EyeOff, Filter, Landmark, LayoutGrid, Link2, List, LogOut, Pencil, Plus, ReceiptText, RefreshCw, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
 import { CreditCardSummary } from "@/components/credit-card-summary";
 import { CardClosing } from "@/components/card-closing";
 import { InstallmentList } from "@/components/installment-list";
@@ -15,9 +17,10 @@ import { ConnectionDetails } from "@/components/connection-details";
 import { HIDDEN_VALUES_KEY, HiddenValues } from "@/components/hidden-values";
 import { EmptyState, FinancialOverview, PanelHeading } from "@/components/dashboard-panels";
 import { logout } from "@/app/login/actions";
-import { displayDate, displayDateWithYear, maskValue, money, moneyTotals, monthRange, timestamp } from "@/lib/format";
+import { blockedBalances, blockedDeposits } from "@/lib/balances";
+import { displayDate, displayDateWithYear, maskValue, money, moneyTotals, monthRange, timestamp, today } from "@/lib/format";
 import { filterLedger, UNKNOWN_METHOD } from "@/lib/ledger-filter";
-import type { Account, DashboardData, Entry, Notice } from "@/lib/types";
+import type { Account, Connection, DashboardData, Entry, Notice } from "@/lib/types";
 
 const PluggyConnect = dynamic(() => import("react-pluggy-connect").then((mod) => mod.PluggyConnect), { ssr: false });
 
@@ -28,6 +31,9 @@ const sections = [
 type View = typeof sections[number][0];
 const empty: DashboardData = { accounts: [], entries: [], bills: [], connections: [], notifications: [], unread: 0 };
 const accountKey = (row: { itemId: string; accountId?: string; id?: string }) => row.itemId + "/" + (row.accountId ?? row.id);
+const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
+const monthLabel = (month: string) => monthName.format(new Date(month + "-01T12:00:00Z"));
+const connectionName = (row: Connection) => row.label || row.name;
 const expense = (row: Entry) => row.direction === "DEBIT" && row.method !== "Fatura";
 const stateLabels: Record<string, string> = {
   CONECTADA: "Conectada", IMPORTANDO: "Importando", RECONECTAR: "Reconectar",
@@ -38,11 +44,54 @@ const webhookLabels = {
   processed: "Processado", ignored: "Ignorado",
 };
 
+// O Radix Select não aceita valor vazio; ALL representa "todos" nos filtros.
+const ALL = "__all";
+const accountLabel = (row: Account) => row.name.trim() + (row.last4 ? " · " + row.last4 : "");
+
+function SelectField({ label, value, onChange, options }: {
+  label: string; value: string; onChange: (value: string) => void; options: { value: string; label: string }[];
+}) {
+  const id = useId();
+  return (
+    <div className="field">
+      <span id={id}>{label}</span>
+      <Select value={value || ALL} onValueChange={(next) => onChange(next === ALL ? "" : next)}>
+        <SelectTrigger aria-labelledby={id} className="select-trigger"><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {options.map((option) => <SelectItem key={option.value || ALL} value={option.value || ALL}>{option.label}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+// A API recusa períodos acima de 366 dias.
+const MAX_RANGE_DAYS = 366;
+const shiftDate = (date: string, days: number) => new Date(Date.parse(date + "T00:00:00Z") + days * 86400000).toISOString().slice(0, 10);
+
+function DateField({ label, value, onChange, min, max }: {
+  label: string; value: string; onChange: (value: string) => void; min?: string; max?: string;
+}) {
+  const id = useId();
+  return (
+    <div className="field">
+      <span id={id}>{label}</span>
+      <DatePicker id={id + "-date"} aria-labelledby={id + " " + id + "-date"} value={value} onChange={onChange} min={min} max={max} today={today()} />
+    </div>
+  );
+}
+
 function noticeLabel(row: Notice) {
   return (row.method === "Pix" ? "Pix " : row.method + " · ") + (row.direction === "CREDIT" ? "recebido" : "enviado");
 }
 
-function Ledger({ rows, accounts }: { rows: Entry[]; accounts: Account[] }) {
+function EntryStatus({ row, blocked }: { row: Entry; blocked: boolean }) {
+  if (blocked) return <Badge variant="outline" className="entry-blocked"
+    title="Lançado na conta, mas fora do saldo disponível até a compensação">Bloqueado</Badge>;
+  return <Badge variant={row.status === "PENDING" ? "outline" : "secondary"}>{row.status === "PENDING" ? "Pendente" : "Efetivada"}</Badge>;
+}
+
+function Ledger({ rows, accounts, blocked }: { rows: Entry[]; accounts: Account[]; blocked?: Set<string> }) {
   if (!rows.length) return <EmptyState icon={List}>Nenhum lançamento para esta seleção.</EmptyState>;
   const accountNames = new Map(accounts.map((row) => [accountKey(row), row.name]));
   return <ScrollArea className="table-wrap" role="region" aria-label="Tabela de lançamentos" tabIndex={0}><table>
@@ -56,7 +105,7 @@ function Ledger({ rows, accounts }: { rows: Entry[]; accounts: Account[] }) {
           {row.installment && row.installments ? " · " + row.installment + "/" + row.installments : ""}</small></div>
       </div></td>
       <td className="entry-date">{displayDate(row.date)} <small>{row.time ?? "Sem horário"}</small></td>
-      <td><Badge variant={row.status === "PENDING" ? "outline" : "secondary"}>{row.status === "PENDING" ? "Pendente" : "Efetivada"}</Badge></td>
+      <td><EntryStatus row={row} blocked={!!blocked?.has(accountKey(row) + "/" + row.id)} /></td>
       <td className={row.direction === "CREDIT" ? "amount positive" : "amount"}>{row.direction === "CREDIT" ? "+" : "−"}{money(row.amount, row.currency)}</td>
     </tr>)}</tbody>
   </table></ScrollArea>;
@@ -111,6 +160,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [expandedConnection, setExpandedConnection] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; value: string } | null>(null);
   const [widget, setWidget] = useState<{ accessToken: string; sandbox: boolean; itemId?: string } | null>(null);
   const latest = useRef<number | null>(null);
   const noticeButton = useRef<HTMLButtonElement>(null);
@@ -119,7 +169,8 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
   const showInstallmentPanel = canSwitchInstallments && installmentsSelected;
   const includeInstallments = view === "cards" || showInstallmentPanel;
   const includeCycles = view === "cards" || view === "spending";
-  const openedBill = view === "bills" && !showInstallmentPanel ? billId : "";
+  const includeOpenBill = view === "bills" && !showInstallmentPanel;
+  const openedBill = includeOpenBill ? billId : "";
 
   const refresh = useCallback(async () => {
     const version = ++refreshVersion.current;
@@ -132,6 +183,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
       const query = new URLSearchParams(activeRange);
       if (includeInstallments) query.set("installments", "1");
       if (includeCycles) query.set("cycles", "1");
+      if (includeOpenBill) query.set("open", "1");
       if (openedBill) query.set("bill", openedBill);
       const response = await fetch("/api/dashboard?" + query, { cache: "no-store" });
       if (version !== refreshVersion.current) return;
@@ -149,7 +201,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
     } finally {
       if (version === refreshVersion.current) setLoading(false);
     }
-  }, [range, includeInstallments, includeCycles, openedBill]);
+  }, [range, includeInstallments, includeCycles, includeOpenBill, openedBill]);
 
   // Lido antes da primeira resposta da API, para os saldos não aparecerem por um instante.
   useEffect(() => { setValuesHidden(localStorage.getItem(HIDDEN_VALUES_KEY) === "1"); }, []);
@@ -181,44 +233,50 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
   const cards = data.accounts.filter((row) => row.type === "CREDIT");
   const card = cards.find((row) => accountKey(row) === cardId) ?? cards[0];
   const cyclesByCard = new Map(data.cardCycles?.map((cycle) => [accountKey(cycle), cycle]));
-  const cardInstitution = data.connections.find((connection) => connection.id === card?.itemId)?.name;
+  const cardConnection = data.connections.find((connection) => connection.id === card?.itemId);
+  const cardInstitution = cardConnection && connectionName(cardConnection);
   const bills = card ? data.bills.filter((row) => accountKey(row) === accountKey(card)).sort((a, b) => (b.due ?? "").localeCompare(a.due ?? "")) : [];
-  const cardRows = card ? data.entries.filter((row) => accountKey(row) === accountKey(card)) : [];
   const cardInstallments = card ? data.installments?.filter((row) => accountKey(row) === accountKey(card)) : [];
   const selectedInstallments = data.installments?.filter((row) => !selected || accountKey(row) === selected);
   const installmentCardLabels = new Map(cards.map((row) => [
     accountKey(row), row.name + (row.last4 ? " · " + row.last4 : ""),
   ]));
-  const openBill = cardRows.filter((row) => !row.billId && row.status === "PENDING" && expense(row));
+  const openBill = card ? data.openBills?.find((row) => accountKey(row) === accountKey(card)) : undefined;
+  const openBillParts = openBill ? ([["Compras", openBill.purchases], ["Parcelas importadas", openBill.imported],
+    ["Parcelas previstas", openBill.estimated]] as const).filter(([, totals]) => totals.length) : [];
   const chosen = data.accounts.find((row) => accountKey(row) === selected);
   const selectedRows = data.entries.filter((row) => !selected || accountKey(row) === selected);
   const ledgerRows = useMemo(() => filterLedger(data.entries, { account: selected, method, hours }),
     [data.entries, selected, method, hours]);
   const spendingRows = ledgerRows.filter(expense);
   const bankKeys = new Set(data.accounts.filter((row) => row.type === "BANK").map(accountKey));
-  const accountBalances = (chosen ? [chosen] : data.accounts.filter((row) => row.type === "BANK"))
+  const balanceAccounts = chosen ? [chosen] : data.accounts.filter((row) => row.type === "BANK");
+  const accountBalances = balanceAccounts
     .flatMap((row) => row.balance === null ? [] : [{ amount: row.balance, currency: row.currency }]);
+  const blocked = blockedBalances(balanceAccounts);
+  const blockedEntries = useMemo(() => blockedDeposits(data.accounts, data.entries, today()), [data.accounts, data.entries]);
   const overviewRows = chosen ? selectedRows : selectedRows.filter((row) => bankKeys.has(accountKey(row)));
   const posted = overviewRows.filter((row) => row.status === "POSTED");
   const methods = [...new Set(["Pix", "Débito", "Crédito", "Boleto", "TED", "Transferência", UNKNOWN_METHOD,
     ...data.entries.map((row) => row.method ?? UNKNOWN_METHOD)])].sort((a,b) => a.localeCompare(b, "pt-BR"));
   const lastSync = data.connections.reduce<string | null>((last, row) => row.syncedAt && (!last || row.syncedAt > last) ? row.syncedAt : last, null);
 
-  async function operation(action: string, itemId?: string) {
+  async function operation(action: string, itemId?: string, extra: Record<string, unknown> = {}) {
     const response = await fetch("/api/connections", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, itemId }) });
+      body: JSON.stringify({ ...extra, action, itemId }) });
     const body = await response.json();
     if (!response.ok) throw new Error(body.error ?? "Não foi possível executar a ação.");
     return body;
   }
 
-  async function run(action: string, itemId?: string) {
+  async function run(action: string, itemId?: string, extra?: Record<string, unknown>) {
     setMessage("");
     setBusy(true);
     try {
-      const result = await operation(action, itemId);
+      const result = await operation(action, itemId, extra);
       if (action === "token") setWidget({ accessToken: result.accessToken, sandbox: result.sandbox, itemId });
       else {
+        if (action === "rename") { setRenaming(null); setMessage("Nome da conexão atualizado."); }
         if (action === "refresh") setMessage("Atualização solicitada.");
         if (action === "import-existing") setMessage(result.alreadyLinked ? "A conexão já está vinculada." : "Importação solicitada.");
         if (action === "disconnect") { setConfirm(null); setMessage("Remoção solicitada."); }
@@ -255,20 +313,13 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
   const openConnection = expandedConnection ?? data.connections.find((row) => row.active)?.id;
 
   const cardSelector = card && (
-    <label className="field">
-      Cartão
-      <span className="select-wrap">
-        <select value={accountKey(card)} onChange={(event) => { setCardId(event.target.value); setBillId(""); }}>
-          {cards.map((row) => <option key={accountKey(row)} value={accountKey(row)}>{row.name}{row.last4 && " · " + row.last4}</option>)}
-        </select>
-        <ChevronDown size={14} />
-      </span>
-    </label>
+    <SelectField label="Cartão" value={accountKey(card)} onChange={(value) => { setCardId(value); setBillId(""); }}
+      options={cards.map((row) => ({ value: accountKey(row), label: accountLabel(row) }))} />
   );
-  const accountSelector = <label className="field">Conta <span className="select-wrap"><select value={selected} onChange={(event) => setSelected(event.target.value)}>
-    <option value="">{view === "overview" ? "Todas as contas bancárias" : "Todas as contas e cartões"}</option>
-    {data.accounts.map((row) => <option key={accountKey(row)} value={accountKey(row)}>{row.name}{row.last4 && " · " + row.last4}</option>)}
-  </select><ChevronDown size={14} /></span></label>;
+  const accountSelector = <SelectField label="Conta" value={selected} onChange={setSelected} options={[
+    { value: "", label: view === "overview" ? "Todas as contas bancárias" : "Todas as contas e cartões" },
+    ...data.accounts.map((row) => ({ value: accountKey(row), label: accountLabel(row) })),
+  ]} />;
   const spendingCards = view === "spending" ? cards.filter((row) => !selected || accountKey(row) === selected) : [];
   const spendingClosings = spendingCards.length > 0 && <section className="my-3 space-y-2 rounded-lg border p-3" aria-label="Fechamento dos cartões">
     <h3 className="text-sm font-semibold">Próximo fechamento dos cartões</h3>
@@ -336,14 +387,18 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
               onClick={() => setFiltersOpen(!filtersOpen)}><Filter /> {filtersOpen ? "Recolher filtros" : "Filtros"}</Button>
             <div id="dashboard-filters" className="filters" data-open={filtersOpen}>
             {view !== "bills" && accountSelector}
-            <label className="field">De<Input type="date" value={range.from} onChange={(event) => setRange({ ...range, from: event.target.value })} /></label>
-            <label className="field">Até<Input type="date" value={range.to} onChange={(event) => setRange({ ...range, to: event.target.value })} /></label>
+            <DateField label="De" value={range.from} onChange={(from) => setRange({ ...range, from })}
+              min={shiftDate(range.to, -MAX_RANGE_DAYS)} max={range.to} />
+            <DateField label="Até" value={range.to} onChange={(to) => setRange({ ...range, to })}
+              min={range.from} max={shiftDate(range.from, MAX_RANGE_DAYS)} />
             {(view === "ledger" || view === "spending") && <>
-              <label className="field">Horário<span className="select-wrap"><select value={hours} onChange={(event) => setHours(event.target.value)}><option value="">Todos</option>
-                <option value="morning">Manhã · 06h–11h</option><option value="afternoon">Tarde · 12h–17h</option><option value="night">Noite · 18h–05h</option><option value="unknown">Sem horário</option></select><ChevronDown size={14} /></span></label>
-              <label className="field">Forma de pagamento<span className="select-wrap"><select value={method} onChange={(event) => setMethod(event.target.value)}>
-                <option value="">Todas as formas</option>{methods.map((value) => <option key={value}>{value}</option>)}
-              </select><ChevronDown size={14} /></span></label>
+              <SelectField label="Horário" value={hours} onChange={setHours} options={[
+                { value: "", label: "Todos" }, { value: "morning", label: "Manhã · 06h–11h" },
+                { value: "afternoon", label: "Tarde · 12h–17h" }, { value: "night", label: "Noite · 18h–05h" },
+                { value: "unknown", label: "Sem horário" },
+              ]} />
+              <SelectField label="Forma de pagamento" value={method} onChange={setMethod}
+                options={[{ value: "", label: "Todas as formas" }, ...methods.map((value) => ({ value, label: value }))]} />
             </>}
             </div>
           </>}
@@ -353,12 +408,13 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
           <FinancialOverview
             balanceLabel={chosen?.type === "CREDIT" ? "Valor em aberto" : "Saldo atual"}
             balance={mask(moneyTotals(accountBalances))}
+            blocked={blocked.blocked.length ? { amount: mask(moneyTotals(blocked.blocked)), ledger: mask(moneyTotals(blocked.ledger)) } : undefined}
             income={moneyTotals(posted.filter((row) => row.direction === "CREDIT"))}
             expense={moneyTotals(posted.filter((row) => row.direction === "DEBIT"))}
           />
           <ScrollArea className="panel-grid" overflow="layout">
             <Card className="panel-card"><CardHeader className="section-header"><PanelHeading icon={List} title="Movimentações recentes" /><Button variant="outline" onClick={() => navigate("ledger")}>Ver extrato <ArrowRight /></Button></CardHeader>
-              <CardContent className="table-panel"><Ledger rows={overviewRows.slice(0, 7)} accounts={data.accounts} /></CardContent></Card>
+              <CardContent className="table-panel"><Ledger rows={overviewRows.slice(0, 7)} accounts={data.accounts} blocked={blockedEntries} /></CardContent></Card>
             <Card className="panel-card"><CardHeader><PanelHeading icon={Activity} title="Gastos por categoria" detail="Saídas efetivadas no período" /></CardHeader><ScrollArea asChild><CardContent className="panel-scroll" role="region" aria-label="Resumo de gastos por categoria" tabIndex={0}><SpendList rows={overviewRows} /></CardContent></ScrollArea></Card>
           </ScrollArea>
         </ScrollArea>}
@@ -366,7 +422,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
           <CardHeader className="section-header"><PanelHeading icon={List} title="Lançamentos do período" />
             <Badge variant="secondary">{ledgerRows.length} {ledgerRows.length === 1 ? "lançamento" : "lançamentos"}</Badge>
           </CardHeader>
-          <CardContent className="table-panel"><Ledger rows={ledgerRows} accounts={data.accounts} /></CardContent>
+          <CardContent className="table-panel"><Ledger rows={ledgerRows} accounts={data.accounts} blocked={blockedEntries} /></CardContent>
         </Card>}
         {view === "spending" && !showInstallmentPanel && <ScrollArea className="panel-grid spending-grid" overflow="layout">
           <Card className="panel-card">
@@ -394,7 +450,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
             <CardHeader className="section-header"><PanelHeading icon={List} title="Lançamentos de gastos" />
               <Badge variant="secondary">{spendingRows.length} {spendingRows.length === 1 ? "lançamento" : "lançamentos"}</Badge>
             </CardHeader>
-            <CardContent className="table-panel"><Ledger rows={spendingRows} accounts={data.accounts} /></CardContent>
+            <CardContent className="table-panel"><Ledger rows={spendingRows} accounts={data.accounts} blocked={blockedEntries} /></CardContent>
           </Card>
         </ScrollArea>}
 
@@ -423,9 +479,17 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
         {view === "bills" && !showInstallmentPanel && <Card className="panel-card">
           <CardHeader className="section-header"><PanelHeading icon={ReceiptText} title="Faturas do cartão" detail={card?.name} />{cards.length > 1 && cardSelector}</CardHeader>
           <ScrollArea asChild><CardContent className="panel-scroll bill-list" role="region" aria-label="Lista de faturas" tabIndex={0}>{!card ? <EmptyState icon={CreditCard}>Nenhum cartão disponível nas instituições conectadas.</EmptyState> : <>
-            {openBill.length > 0 && <div className="bill-row bill-estimate">
-              <PanelHeading icon={Activity} title="Compras pendentes no período" detail="Estimativa do ciclo aberto" />
-              <strong className="amount">{mask(moneyTotals(openBill))}</strong>
+            {openBill && openBill.count > 0 && <div className="bill-row bill-estimate">
+              <div>
+                <PanelHeading icon={Activity} title="Fatura aberta" detail={[
+                  openBill.closes && "Fecha " + displayDateWithYear(openBill.closes),
+                  openBill.due ? "vence " + displayDateWithYear(openBill.due) : "vence em " + monthLabel(openBill.month),
+                ].filter(Boolean).join(" · ")} />
+                <small className="mt-1">{openBillParts.map(([label, totals]) => label + " " + mask(moneyTotals([...totals]))).join(" · ")}</small>
+                <small>Pode mudar até o banco fechar a fatura.</small>
+              </div>
+              <Badge variant="outline">Estimativa</Badge>
+              <strong className="amount">{mask(moneyTotals(openBill.total))}</strong>
             </div>}
             {!bills.length && <EmptyState icon={ReceiptText}>Nenhuma fatura oficial disponível para este cartão.</EmptyState>}
             {bills.map((bill) => <div className="bill-item" key={bill.id} id={"bill-" + bill.id}>
@@ -460,7 +524,17 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
             {data.connections.map((row) => <div key={row.id}>
               <div className="connection-row">
               <div>
-                <PanelHeading icon={Landmark} title={row.name} detail={row.syncedAt ? "Atualizado em " + timestamp(row.syncedAt) : "Aguardando primeira importação"} />
+                {renaming?.id === row.id ? <>
+                  <form className="connection-rename" onSubmit={(event) => { event.preventDefault(); void run("rename", row.id, { label: renaming.value }); }}>
+                    <Input aria-label="Nome da conexão" value={renaming.value} maxLength={40} autoFocus placeholder={row.name}
+                      onChange={(event) => setRenaming({ id: row.id, value: event.target.value })}
+                      onKeyDown={(event) => { if (event.key === "Escape") setRenaming(null); }} />
+                    <Button type="submit" size="sm" disabled={busy}>Salvar</Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setRenaming(null)}>Cancelar</Button>
+                  </form>
+                  <small className="mt-1 block text-xs text-muted-foreground">Deixe vazio para voltar a {row.name}.</small>
+                </> : <PanelHeading icon={Landmark} title={connectionName(row)} detail={(row.label ? row.name + " · " : "") +
+                  (row.syncedAt ? "Atualizado em " + timestamp(row.syncedAt) : "Aguardando primeira importação")} />}
                 {row.webhookReceivedAt && row.webhookStatus && <p className="mt-1 text-xs text-muted-foreground">
                   Webhook: {row.webhookEvent} · {timestamp(row.webhookReceivedAt)} · {webhookLabels[row.webhookStatus]}
                 </p>}
@@ -472,6 +546,9 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
                 {openConnection === row.id ? "Ocultar detalhes" : "Ver detalhes"} <ChevronDown aria-hidden="true" />
               </Button>}
               {Boolean(row.active) && <div className="connection-actions">
+                {renaming?.id !== row.id && <Button variant="outline" disabled={busy} onClick={() => setRenaming({ id: row.id, value:
+                  row.label ?? (data.accounts.find((account) => account.itemId === row.id && account.type === "BANK") ??
+                    data.accounts.find((account) => account.itemId === row.id))?.name.trim() ?? "" })}><Pencil /> Renomear</Button>}
                 {row.status === "RECONECTAR" ? <Button variant="outline" onClick={() => run("token", row.id)} disabled={busy}>Reconectar</Button> :
                   <Button variant="outline" onClick={() => run("refresh", row.id)} disabled={busy || row.status === "IMPORTANDO"}><RefreshCw /> Atualizar</Button>}
                 {confirm === row.id ? <><Button variant="destructive" onClick={() => run("disconnect", row.id)} disabled={busy}>Confirmar remoção</Button>

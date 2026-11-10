@@ -22,7 +22,7 @@ export type Bill = {
 };
 export type Notice = { id: number; date: string; read: boolean; method: string; direction: Entry["direction"]; amount: number; currency: string };
 export type Connection = {
-  id: string; name: string; status: string; syncedAt: string | null; active: number;
+  id: string; name: string; label?: string | null; status: string; syncedAt: string | null; active: number;
   webhookEvent?: string | null; webhookReceivedAt?: string | null;
   webhookStatus?: "queued" | "retry" | "processed" | "ignored" | null;
   details?: {
@@ -39,9 +39,15 @@ export type CardCycle = {
   itemId: string; accountId: string; nextClosing: string | null; lastClosing: string | null;
   source: "card" | "bill" | "history" | "transactions" | null;
 };
+type Totals = { amount: number; currency: string }[];
+export type OpenBill = {
+  itemId: string; accountId: string; month: string; closes: string | null; due: string | null;
+  purchases: Totals; imported: Totals; estimated: Totals; total: Totals; count: number;
+};
 export type DashboardData = {
   accounts: Account[]; entries: Entry[]; bills: Bill[]; connections: Connection[];
   notifications: Notice[]; unread: number; installments?: Installment[];
   billPurchases?: { id: string; entries: Entry[] };
   cardCycles?: CardCycle[];
+  openBills?: OpenBill[];
 };

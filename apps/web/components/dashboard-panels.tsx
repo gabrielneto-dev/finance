@@ -25,9 +25,10 @@ export function EmptyState({ icon: Icon, children }: { icon: LucideIcon; childre
   </div>;
 }
 
-export function FinancialOverview({ balanceLabel, balance, income, expense }: {
+export function FinancialOverview({ balanceLabel, balance, blocked, income, expense }: {
   balanceLabel: string;
   balance: string;
+  blocked?: { amount: string; ledger: string };
   income: string;
   expense: string;
 }) {
@@ -36,7 +37,8 @@ export function FinancialOverview({ balanceLabel, balance, income, expense }: {
       <div className="financial-totals" role="region" aria-label="Resumo financeiro">
         <dl className="financial-balance">
           <dt><Wallet size={17} aria-hidden="true" /> {balanceLabel}</dt>
-          <dd>{balance}<small>Último saldo informado</small></dd>
+          <dd>{balance}<small>Último saldo informado</small>
+            {blocked && <small className="financial-blocked">{blocked.amount} bloqueado · contábil {blocked.ledger}</small>}</dd>
         </dl>
         <div className="financial-flow">
           <dl>

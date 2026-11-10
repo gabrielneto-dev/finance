@@ -22,5 +22,6 @@ export async function GET(request: Request) {
   const reference = today();
   const scheduleFrom = query.get("installments") === "1" ? reference : "";
   const cycleDate = query.get("cycles") === "1" ? reference : "";
-  return Response.json(dashboard(database(), user, from, to, scheduleFrom, billId, cycleDate), { headers });
+  const openDate = query.get("open") === "1" ? reference : "";
+  return Response.json(dashboard(database(), user, from, to, scheduleFrom, billId, cycleDate, openDate), { headers });
 }

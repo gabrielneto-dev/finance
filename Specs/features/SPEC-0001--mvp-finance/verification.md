@@ -133,6 +133,32 @@ REQ-016 · 2026-11-10 · PASS na web. Um teste unitário cobre a máscara, a aus
 
 No painel local com a conexão real, o botão do topo ocultou o saldo atual na Visão geral, o valor em aberto em Cartões, a estimativa do ciclo aberto, o valor e o pagamento mínimo das faturas em Faturas e os dez campos de saldo, limite e cheque especial em Conexões. Movimentações recentes, entradas, saídas, gastos por categoria e parcelas continuaram visíveis. Depois de recarregar a página, a preferência foi mantida. Ao clicar de novo, nenhum valor ficou mascarado. Limite: a preferência vale por navegador e não se aplica ao Android, que ainda não existe.
 
+## Valor bloqueado na conta
+
+REQ-017 · 2026-11-10 · PASS na web. Na conexão real, um depósito em cheque de 9 de novembro aparecia como lançamento efetivado, mas o saldo disponível não o incluía. O saldo contábil importado superava o disponível exatamente pelo valor do cheque, ainda não compensado. Um teste unitário cobre diferença positiva, saldos iguais, contábil menor, campos ausentes, conta sem dados bancários e moedas distintas. Os 19 testes web, a checagem de tipos e o build passaram.
+
+No painel local, a Visão geral passou a mostrar o valor bloqueado e o saldo contábil abaixo do Saldo atual, com a mesma diferença observada nos dados. Com valores ocultos, os dois aparecem mascarados. Limite: a Pluggy não informa o motivo do bloqueio, então o painel mostra só a diferença entre os saldos.
+
+## Depósito em cheque bloqueado
+
+REQ-018 · 2026-11-10 · PASS na web. Três testes unitários cobrem a marcação do cheque que cabe no valor bloqueado, a ordem do mais novo ao mais antigo com parada no primeiro que não cabe e a exclusão de débitos, outras contas, outras moedas, créditos sem cheque e datas fora da janela. Também cobrem a identificação pela descrição quando falta categoria. O cálculo de saldos passou para `lib/balances.ts`. Os 22 testes web, a checagem de tipos e o build passaram.
+
+No painel local com a conexão real, o depósito em cheque de 9 de novembro apareceu com a situação Bloqueado na Visão geral e no Extrato. Dos 32 lançamentos do mês, só ele foi marcado. Limite: a marcação é inferida pelos saldos da última sincronização e some quando a Pluggy informar o saldo já compensado.
+
+## Fatura aberta pelo ciclo do cartão
+
+REQ-019 · 2026-11-10 · PASS na web. O bloco anterior somava só compras pendentes dentro do filtro de datas e omitia parcelas. Dois testes unitários cobrem o mês e as datas do ciclo aberto, compras pendentes que chegaram depois do fechamento, compras efetivadas sem fatura, estorno, pagamento de fatura, compras antigas, parcelas importadas e previstas do mês, outro cartão, outra moeda, vencimento fora do mês e cartão sem faturas. Os 24 testes web, a checagem de tipos e o build passaram.
+
+Com as duas conexões reais, o cálculo em modo leitura sobre o SQLite coincidiu com o painel. Para cada cartão, a Fatura aberta mostrou fechamento e vencimento coerentes com as faturas oficiais e discriminou compras, parcelas importadas e previstas. Mudar o início do filtro de datas não alterou o valor. Com valores ocultos, todas as partes ficaram mascaradas, e não houve erros no console. Limite: encargos, ajustes e compras que chegam com atraso podem mudar o valor até o fechamento, por isso a fatura oficial continua sendo a referência.
+
+Correção em 2026-11-10, após o usuário comparar com o app do banco. A estimativa de um cartão ficou acima do valor exibido pelo emissor por três causas. Primeiro, parcelas futuras pendentes chegam de uma vez, com a data da compra e o mês previsto de cada fatura, e o cronograma as punha todas no ciclo aberto. Segundo, o identificador do plano mudou entre parcelas da mesma compra e gerou uma previsão duplicada de uma parcela já importada. Terceiro, uma autorização pendente de três ciclos antes ainda entrava na soma. Agora o mês previsto prevalece quando é posterior ao ciclo aberto. A previsão cede lugar à parcela real do mesmo cartão, moeda, mês e posição com valor próximo. Pendentes anteriores ao fechamento que precede o último deixam de contar. Dois testes novos com dados sintéticos cobrem os casos, e os 28 testes web e o build passaram. No painel local, a estimativa do cartão afetado caiu cerca de 23% e passou a coincidir com o cálculo manual das compras e parcelas do ciclo. O outro cartão não mudou. Limite: entre parcelas de planos diferentes com o mesmo valor e posição, a previsão pode ser descartada indevidamente.
+
+## Renomear conexões
+
+REQ-020 · 2026-11-10 · PASS na web. Um teste cobre a normalização de espaços, o limite de 40 caracteres, caracteres de controle e o valor vazio. Outro teste parte de um banco sem a coluna `label` e confirma a migração sem perda, a recusa para outro proprietário e para conexão inativa, a preservação do nome após `saveConnectionDetails` com o nome do conector e a restauração. Os 26 testes web, a checagem de tipos e o build passaram.
+
+No painel local, com as duas conexões reais MeuPluggy, Renomear abriu o campo com o nome da conta da instituição como sugestão. Salvar exibiu o novo nome, com "MeuPluggy" e a sincronização como detalhe. Salvar vazio restaurou "MeuPluggy", e o SQLite voltou a ter `label` nulo nas duas conexões. Não houve erros no console. Os nomes definitivos ficam a critério do usuário.
+
 ## Definição da stack
 
 Em 2026-11-08, SPEC-0001-T001 passou em revisão documental. O [plano](plan.md) registra as escolhas e as fontes primárias sobre SDKs Pluggy, deep links no Expo, Route Handlers e autenticação. O público de uso pessoal é uma premissa da prova. A execução do widget, o retorno OAuth no Android e os demais critérios do produto continuam em `NOT_RUN`.
