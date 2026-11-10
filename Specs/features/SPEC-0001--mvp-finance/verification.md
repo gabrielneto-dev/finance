@@ -175,6 +175,12 @@ REQ-020 · 2026-11-10 · PASS na web. Um teste cobre a normalização de espaço
 
 No painel local, com as duas conexões reais MeuPluggy, Renomear abriu o campo com o nome da conta da instituição como sugestão. Salvar exibiu o novo nome, com "MeuPluggy" e a sincronização como detalhe. Salvar vazio restaurou "MeuPluggy", e o SQLite voltou a ter `label` nulo nas duas conexões. Não houve erros no console. Os nomes definitivos ficam a critério do usuário.
 
+## Vínculo pelo widget e rolagem de Gastos
+
+Em 2026-11-10, numa segunda máquina, as credenciais da Pluggy tinham sido trocadas e a conexão antiga respondia HTTP 404. O dono conectou o MeuPluggy pelo widget em Conexões e concluiu o consentimento no navegador do app. O retorno do widget vinculou o novo Item ao dono. Com origem `http://127.0.0.1:3001`, sem redirecionamento OAuth, o worker importou a conexão com lançamentos até o dia corrente. Os dias 7 e 8 de novembro, que faltavam na conexão antiga, chegaram. A primeira consulta periódica no novo Item terminou sem erro. A conexão antiga foi removida pelo painel.
+
+No mesmo dia, a lista de Gastos parou de rolar. A regra criada para que as compras das faturas rolassem junto com o painel também atingia a grade de Gastos, que só organiza o layout e não rola no desktop. A regra passou a valer apenas dentro de áreas que rolam. No navegador, a tabela de Gastos rolou com a roda do mouse, e as compras da fatura continuaram rolando junto com a lista de faturas. Os 42 testes web e o build passaram.
+
 ## Definição da stack
 
 Em 2026-11-08, SPEC-0001-T001 passou em revisão documental. O [plano](plan.md) registra as escolhas e as fontes primárias sobre SDKs Pluggy, deep links no Expo, Route Handlers e autenticação. O público de uso pessoal é uma premissa da prova. A execução do widget, o retorno OAuth no Android e os demais critérios do produto continuam em `NOT_RUN`.

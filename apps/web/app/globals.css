@@ -119,8 +119,9 @@ button:disabled { cursor: default; }
 .scroll-area[data-overflow=auto] { overflow: auto; }
 .scroll-area[data-overflow=vertical] { overflow-y: auto; }
 /* Dentro de um painel que já rola (compras das faturas), a tabela não vira outra área de
-   rolagem: a roda do mouse sobre ela rola o painel. */
-.scroll-area .table-wrap.scroll-area { overflow: visible; }
+   rolagem: a roda do mouse sobre ela rola o painel. Grades de layout não rolam no desktop,
+   então a tabela delas (Gastos, visão geral) mantém a própria rolagem. */
+.scroll-area:is([data-overflow=auto], [data-overflow=vertical]) .table-wrap.scroll-area { overflow: visible; }
 .scroll-area:focus-visible { outline: 2px solid var(--scroll-thumb-active); outline-offset: -2px; }
 @media (forced-colors: none) {
   @supports selector(::-webkit-scrollbar) {
