@@ -166,8 +166,13 @@ export function normalizeTransaction(row, accountId, accountCurrency = null) {
   const local = hasTime && Number.isFinite(Date.parse(dateTime))
     ? new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short", hourCycle: "h23" }).format(new Date(dateTime))
     : null;
+  // A partir da 2ª parcela, date traz o dia da cobrança e transactionDateTime, o da compra.
+  // O lançamento conta na data da cobrança e guarda a da compra à parte.
+  const purchase = local?.slice(0, 10) || row.date.slice(0, 10);
+  const deferred = Number.isInteger(card?.installmentNumber) && card.installmentNumber >= 2 && purchase !== row.date.slice(0, 10);
   return {
-    id: row.id, accountId, date: local?.slice(0, 10) || row.date.slice(0, 10), time: local?.slice(11, 16) || null,
+    id: row.id, accountId, date: deferred ? row.date.slice(0, 10) : purchase,
+    ...(deferred ? { purchaseDate: purchase } : {}), time: deferred ? null : local?.slice(11, 16) || null,
     description: typeof row.description === "string" ? row.description.slice(0, 250) : "Lançamento",
     direction: row.type, status: row.status, currency: row.currencyCode,
     amount: Math.abs(minor(row.amount, row.currencyCode)), method, transfer: transfers.has(method),

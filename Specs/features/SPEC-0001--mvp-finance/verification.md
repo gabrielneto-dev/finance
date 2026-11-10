@@ -159,6 +159,12 @@ REQ-006, REQ-019 · 2026-11-10 · PASS na web. A importação passou a guardar `
 
 Com as conexões reais, a sincronização feita pelo botão Atualizar preencheu o valor convertido em todos os lançamentos em moeda estrangeira. Em Gastos e na fatura aberta, o total passou a aparecer só em reais.
 
+## Parcelas no mês da cobrança
+
+REQ-006 · 2026-11-10 · PASS na web. A pedido do usuário, a partir da 2ª parcela o lançamento conta na data em que o banco o lança no cartão, e não na data da compra. A Pluggy envia essa data em `date` e a da compra em `creditCardMetadata.transactionDateTime`, que o app usava antes. A data da compra fica em `purchaseDate` e aparece no extrato. Antes, parcelas futuras de um emissor, enviadas de uma vez, inflavam o mês da compra, e parcelas já cobradas de outro emissor ficavam fora do mês em que foram lançadas. Um teste com dados sintéticos cobre parcela futura, 1ª parcela e parcela sem data de compra distinta. Os 31 testes web, a checagem de tipos e o build passaram.
+
+Com as conexões reais, a sincronização regravou as parcelas dos dois emissores. O total do período atual e as faturas abertas não mudaram. Em um mês anterior, saíram as parcelas futuras e entraram as parcelas lançadas naquele mês. Durante a verificação, três processos de worker antigos continuavam vivos porque o encerramento da tarefa parou só o `npm`; eles foram finalizados antes da sincronização válida.
+
 ## Renomear conexões
 
 REQ-020 · 2026-11-10 · PASS na web. Um teste cobre a normalização de espaços, o limite de 40 caracteres, caracteres de controle e o valor vazio. Outro teste parte de um banco sem a coluna `label` e confirma a migração sem perda, a recusa para outro proprietário e para conexão inativa, a preservação do nome após `saveConnectionDetails` com o nome do conector e a restauração. Os 26 testes web, a checagem de tipos e o build passaram.

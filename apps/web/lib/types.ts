@@ -15,7 +15,7 @@ export type Entry = {
   date: string; time: string | null; status: "POSTED" | "PENDING";
   direction: "CREDIT" | "DEBIT"; amount: number; currency: string; method: string | null; category: string | null;
   billId: string | null; installment: number | null; installments: number | null;
-  accountAmount?: number | null; accountCurrency?: string | null;
+  accountAmount?: number | null; accountCurrency?: string | null; purchaseDate?: string | null;
 };
 export type Bill = {
   id: string; itemId: string; accountId: string; closes: string | null; due: string | null; currency: string; amount: number;

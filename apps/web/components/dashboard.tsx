@@ -103,7 +103,8 @@ function Ledger({ rows, accounts, blocked }: { rows: Entry[]; accounts: Account[
           {row.direction === "CREDIT" ? <ArrowDownLeft size={16} /> : <ArrowUpRight size={16} />}
         </span>
         <div><strong>{row.description}</strong><small>{accountNames.get(accountKey(row))}{row.method && " · " + row.method}
-          {row.installment && row.installments ? " · " + row.installment + "/" + row.installments : ""}</small></div>
+          {row.installment && row.installments ? " · " + row.installment + "/" + row.installments : ""}
+          {row.purchaseDate && " · compra em " + displayDate(row.purchaseDate)}</small></div>
       </div></td>
       <td className="entry-date">{displayDate(row.date)} <small>{row.time ?? "Sem horário"}</small></td>
       <td><EntryStatus row={row} blocked={!!blocked?.has(accountKey(row) + "/" + row.id)} /></td>
