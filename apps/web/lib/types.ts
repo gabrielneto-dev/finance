@@ -44,6 +44,7 @@ type Totals = { amount: number; currency: string }[];
 export type OpenBill = {
   itemId: string; accountId: string; month: string; closes: string | null; due: string | null;
   purchases: Totals; imported: Totals; estimated: Totals; total: Totals; count: number;
+  entries: Entry[]; forecast: Installment[];
 };
 export type DashboardData = {
   accounts: Account[]; entries: Entry[]; bills: Bill[]; connections: Connection[];

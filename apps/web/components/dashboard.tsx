@@ -155,6 +155,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [cardId, setCardId] = useState("");
   const [billId, setBillId] = useState("");
+  const [openBillShown, setOpenBillShown] = useState(false);
   const [installmentsSelected, setInstallmentsSelected] = useState(initialInstallments);
   const [notifications, setNotifications] = useState(false);
   const [toast, setToast] = useState<Notice | null>(null);
@@ -483,7 +484,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
         {view === "bills" && !showInstallmentPanel && <Card className="panel-card">
           <CardHeader className="section-header"><PanelHeading icon={ReceiptText} title="Faturas do cartão" detail={card?.name} />{cards.length > 1 && cardSelector}</CardHeader>
           <ScrollArea asChild><CardContent className="panel-scroll bill-list" role="region" aria-label="Lista de faturas" tabIndex={0}>{!card ? <EmptyState icon={CreditCard}>Nenhum cartão disponível nas instituições conectadas.</EmptyState> : <>
-            {openBill && openBill.count > 0 && <div className="bill-row bill-estimate">
+            {openBill && openBill.count > 0 && <div className="bill-item bill-estimate"><div className="bill-row">
               <div>
                 <PanelHeading icon={Activity} title="Fatura aberta" detail={[
                   openBill.closes && "Fecha " + displayDateWithYear(openBill.closes),
@@ -494,6 +495,14 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
               </div>
               <Badge variant="outline">Estimativa</Badge>
               <strong className="amount">{mask(moneyTotals(openBill.total))}</strong>
+              <Button variant="outline" aria-expanded={openBillShown} aria-controls="open-bill-purchases"
+                onClick={() => setOpenBillShown(!openBillShown)}>{openBillShown ? "Ocultar compras" : "Ver compras"} <ChevronDown aria-hidden="true" /></Button>
+            </div>
+            {openBillShown && <div className="bill-purchases" id="open-bill-purchases">
+              <Ledger rows={openBill.entries} accounts={data.accounts} />
+              {openBill.forecast.length > 0 && <InstallmentList installments={openBill.forecast} title="Parcelas previstas"
+                description="Ainda não lançadas pelo banco. O valor repete a parcela importada mais recente do mesmo parcelamento." />}
+            </div>}
             </div>}
             {!bills.length && <EmptyState icon={ReceiptText}>Nenhuma fatura oficial disponível para este cartão.</EmptyState>}
             {bills.map((bill) => <div className="bill-item" key={bill.id} id={"bill-" + bill.id}>

@@ -43,6 +43,16 @@ test("soma compras do ciclo aberto, estornos e parcelas do mês de vencimento", 
   assert.deepEqual(bill.estimated, [{ amount: 250, currency: "BRL" }]);
   assert.deepEqual(bill.total, [{ amount: 2000, currency: "BRL" }, { amount: 40, currency: "USD" }]);
   assert.equal(bill.count, 7);
+  assert.deepEqual(bill.entries.map((row) => row.amount), [40, 200, 300, 1000, 500]);
+  assert.deepEqual(bill.forecast.map((row) => row.amount), [150, 250]);
+});
+
+test("lista a parcela importada com o lançamento original", () => {
+  const installment = entry(120, "2026-11-20", { installment: 2, installments: 4 });
+  const schedule = [parcel(120, "2026-12", false, { id: installment.id }), parcel(120, "2026-12", true)];
+  const bill = openBill({ card, bills, entries: [entry(80, "2026-11-21"), installment], schedule, cycle, reference: "2026-11-10" });
+  assert.deepEqual(bill.entries.map((row) => [row.date, row.amount]), [["2026-11-21", 80], ["2026-11-20", 120]]);
+  assert.deepEqual(bill.forecast.map((row) => row.estimated), [true]);
 });
 
 test("omite o vencimento fora do mês do ciclo e devolve vazio sem histórico de faturas", () => {

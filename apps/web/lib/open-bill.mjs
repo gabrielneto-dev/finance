@@ -32,6 +32,12 @@ export function openBill({ card, bills, entries, schedule, cycle, reference }) {
   const imported = installments.filter((row) => !row.estimated);
   const estimated = installments.filter((row) => row.estimated);
   const signed = (row) => row.direction === "CREDIT" ? -1 : 1;
+  // Lançamentos que compõem a fatura: compras e parcelas importadas com o registro original,
+  // e o que só existe no cronograma (previsões) à parte.
+  const unbilled = new Map(entries.filter(sameCard(card)).map((row) => [row.id, row]));
+  const listed = [...purchases, ...imported.map((row) => unbilled.get(row.id)).filter(Boolean)]
+    .sort((a, b) => b.date.localeCompare(a.date) || (b.time ?? "").localeCompare(a.time ?? ""));
+  const forecast = [...imported.filter((row) => !unbilled.has(row.id)), ...estimated];
 
   const closes = cycle?.nextClosing ?? null;
   const gap = dueGap(cardBills, card);
@@ -40,6 +46,6 @@ export function openBill({ card, bills, entries, schedule, cycle, reference }) {
     itemId: card.itemId, accountId: card.id, month, closes, due: due?.slice(0, 7) === month ? due : null,
     purchases: totals(purchases, signed), imported: totals(imported), estimated: totals(estimated),
     total: totals([...purchases.map((row) => ({ ...charged(row), amount: signed(row) * charged(row).amount })), ...installments]),
-    count: purchases.length + installments.length,
+    count: purchases.length + installments.length, entries: listed, forecast,
   };
 }

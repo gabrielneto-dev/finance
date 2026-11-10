@@ -165,6 +165,10 @@ REQ-006 · 2026-11-10 · PASS na web. A pedido do usuário, a partir da 2ª parc
 
 Com as conexões reais, a sincronização regravou as parcelas dos dois emissores. O total do período atual e as faturas abertas não mudaram. Em um mês anterior, saíram as parcelas futuras e entraram as parcelas lançadas naquele mês. Durante a verificação, três processos de worker antigos continuavam vivos porque o encerramento da tarefa parou só o `npm`; eles foram finalizados antes da sincronização válida.
 
+## Compras da fatura aberta
+
+REQ-019 · 2026-11-10 · PASS na web. A pedido do usuário, a fatura aberta ganhou o botão "Ver compras", como as faturas oficiais. Ele lista as compras do ciclo e as parcelas importadas com o lançamento original, em ordem de data, e as parcelas previstas à parte, agrupadas por mês. O backend devolve esses itens com a fatura aberta. Um teste com dados sintéticos cobre a ordem da lista e a separação das previsões. Os 32 testes web, a checagem de tipos e o build passaram. Com as conexões reais, a soma dos itens listados bateu com o total exibido nos dois cartões.
+
 ## Renomear conexões
 
 REQ-020 · 2026-11-10 · PASS na web. Um teste cobre a normalização de espaços, o limite de 40 caracteres, caracteres de controle e o valor vazio. Outro teste parte de um banco sem a coluna `label` e confirma a migração sem perda, a recusa para outro proprietário e para conexão inativa, a preservação do nome após `saveConnectionDetails` com o nome do conector e a restauração. Os 26 testes web, a checagem de tipos e o build passaram.

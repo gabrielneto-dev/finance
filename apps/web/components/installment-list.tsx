@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { CalendarDays } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,8 +8,10 @@ import type { Installment } from "@/lib/types";
 
 const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
 
-export function InstallmentList({ installments, accountLabels, onOpenBill }: {
+export function InstallmentList({ installments, accountLabels, onOpenBill, title, description }: {
   installments?: Installment[];
+  title?: string;
+  description?: string;
   accountLabels?: Map<string, string>;
   onOpenBill?: (id: string) => void;
 }) {
@@ -17,10 +20,11 @@ export function InstallmentList({ installments, accountLabels, onOpenBill }: {
     if (!months.has(row.month)) months.set(row.month, []);
     months.get(row.month)!.push(row);
   }
-  return <section className="mt-5 space-y-3" aria-labelledby="installments-title">
-    <h3 id="installments-title" className="text-base font-semibold">Parcelas por mês</h3>
+  const titleId = useId();
+  return <section className="mt-5 space-y-3" aria-labelledby={titleId}>
+    <h3 id={titleId} className="text-base font-semibold">{title ?? "Parcelas por mês"}</h3>
     <p className="text-sm text-muted-foreground">
-      Do mês atual em diante. As previsões usam o valor da parcela importada mais recente como referência.
+      {description ?? "Do mês atual em diante. As previsões usam o valor da parcela importada mais recente como referência."}
     </p>
     {!installments && <p role="status" className="text-sm text-muted-foreground">Carregando parcelas…</p>}
     {installments?.length === 0 && <EmptyState icon={CalendarDays}>Nenhuma parcela encontrada para a seleção.</EmptyState>}
