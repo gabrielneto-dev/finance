@@ -102,7 +102,7 @@ export async function list(path, query) {
   throw new Error("Limite de páginas excedido");
 }
 
-export async function transactions(accountId, filters = {}) {
+export async function transactions(accountId, filters = {}, accountCurrency = null) {
   let next = "?" + new URLSearchParams({ accountId, ...filters });
   const seen = new Set();
   const rows = [];
@@ -113,7 +113,7 @@ export async function transactions(accountId, filters = {}) {
     seen.add(next);
     const page = await pluggy("/v2/transactions" + next);
     if (!Array.isArray(page?.results)) throw new Error("Página de transações inválida");
-    rows.push(...page.results.map((row) => normalizeTransaction(row, accountId)));
+    rows.push(...page.results.map((row) => normalizeTransaction(row, accountId, accountCurrency)));
     next = page.next;
   }
   return rows;
@@ -143,7 +143,17 @@ function installmentMetadata(row, card) {
   };
 }
 
-export function normalizeTransaction(row, accountId) {
+// Valor cobrado na moeda da conta, informado pelo banco para compras em outra moeda.
+function accountAmount(row, accountCurrency) {
+  if (!accountCurrency || accountCurrency === row.currencyCode || row.amountInAccountCurrency == null) return {};
+  try {
+    return { accountCurrency, accountAmount: Math.abs(minor(row.amountInAccountCurrency, accountCurrency)) };
+  } catch {
+    return {};
+  }
+}
+
+export function normalizeTransaction(row, accountId, accountCurrency = null) {
   if (row.accountId !== accountId || !uuid.test(row.id)) throw new Error("Transação fora do escopo");
   if (!["CREDIT", "DEBIT"].includes(row.type) || !["PENDING", "POSTED"].includes(row.status)) throw new Error("Transação inválida");
   if (typeof row.date !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(row.date) || !Number.isFinite(Date.parse(row.date))) throw new Error("Data inválida");
@@ -166,6 +176,7 @@ export function normalizeTransaction(row, accountId) {
     installment: Number.isInteger(card?.installmentNumber) ? card.installmentNumber : null,
     installments: Number.isInteger(card?.totalInstallments) ? card.totalInstallments : null,
     ...installmentMetadata(row, card),
+    ...accountAmount(row, accountCurrency),
     createdAt: typeof row.createdAt === "string" && Number.isFinite(Date.parse(row.createdAt)) ? new Date(row.createdAt).toISOString() : null,
   };
 }

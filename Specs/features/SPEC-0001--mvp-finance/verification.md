@@ -153,6 +153,12 @@ Com as duas conexões reais, o cálculo em modo leitura sobre o SQLite coincidiu
 
 Correção em 2026-11-10, após o usuário comparar com o app do banco. A estimativa de um cartão ficou acima do valor exibido pelo emissor por três causas. Primeiro, parcelas futuras pendentes chegam de uma vez, com a data da compra e o mês previsto de cada fatura, e o cronograma as punha todas no ciclo aberto. Segundo, o identificador do plano mudou entre parcelas da mesma compra e gerou uma previsão duplicada de uma parcela já importada. Terceiro, uma autorização pendente de três ciclos antes ainda entrava na soma. Agora o mês previsto prevalece quando é posterior ao ciclo aberto. A previsão cede lugar à parcela real do mesmo cartão, moeda, mês e posição com valor próximo. Pendentes anteriores ao fechamento que precede o último deixam de contar. Dois testes novos com dados sintéticos cobrem os casos, e os 28 testes web e o build passaram. No painel local, a estimativa do cartão afetado caiu cerca de 23% e passou a coincidir com o cálculo manual das compras e parcelas do ciclo. O outro cartão não mudou. Limite: entre parcelas de planos diferentes com o mesmo valor e posição, a previsão pode ser descartada indevidamente.
 
+## Compras em outra moeda
+
+REQ-006, REQ-019 · 2026-11-10 · PASS na web. A importação passou a guardar `amountInAccountCurrency` como `accountAmount` na moeda da conta, conforme o [contrato de dados](pluggy-data.md). Nenhum câmbio é estimado: sem o valor do banco, o lançamento continua na moeda original. Os totais de gastos, os grupos por categoria e a fatura aberta usam o valor cobrado, e o extrato mostra o valor original com o cobrado abaixo. Dois testes com dados sintéticos cobrem a normalização, os casos sem conversão e os totais. Os 30 testes web, a checagem de tipos e o build passaram.
+
+Com as conexões reais, a sincronização feita pelo botão Atualizar preencheu o valor convertido em todos os lançamentos em moeda estrangeira. Em Gastos e na fatura aberta, o total passou a aparecer só em reais.
+
 ## Renomear conexões
 
 REQ-020 · 2026-11-10 · PASS na web. Um teste cobre a normalização de espaços, o limite de 40 caracteres, caracteres de controle e o valor vazio. Outro teste parte de um banco sem a coluna `label` e confirma a migração sem perda, a recusa para outro proprietário e para conexão inativa, a preservação do nome após `saveConnectionDetails` com o nome do conector e a restauração. Os 26 testes web, a checagem de tipos e o build passaram.

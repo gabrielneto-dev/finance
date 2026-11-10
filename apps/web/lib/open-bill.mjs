@@ -1,12 +1,16 @@
 import { dateText, dayNumber } from "./card-cycle.mjs";
+import { charged } from "./charged.mjs";
 import { dueGap, openCycleMonth } from "./installments.mjs";
 
 const STALE_PENDING_DAYS = 31;
-const sameCard =(card) => (row) => row.itemId === card.itemId && row.accountId === card.id;
+const sameCard = (card) => (row) => row.itemId === card.itemId && row.accountId === card.id;
 
 function totals(rows, sign = () => 1) {
   const byCurrency = new Map();
-  for (const row of rows) byCurrency.set(row.currency, (byCurrency.get(row.currency) ?? 0) + sign(row) * row.amount);
+  for (const row of rows) {
+    const { amount, currency } = charged(row);
+    byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + sign(row) * amount);
+  }
   return Array.from(byCurrency, ([currency, amount]) => ({ amount, currency }));
 }
 
@@ -35,7 +39,7 @@ export function openBill({ card, bills, entries, schedule, cycle, reference }) {
   return {
     itemId: card.itemId, accountId: card.id, month, closes, due: due?.slice(0, 7) === month ? due : null,
     purchases: totals(purchases, signed), imported: totals(imported), estimated: totals(estimated),
-    total: totals([...purchases.map((row) => ({ ...row, amount: signed(row) * row.amount })), ...installments]),
+    total: totals([...purchases.map((row) => ({ ...charged(row), amount: signed(row) * charged(row).amount })), ...installments]),
     count: purchases.length + installments.length,
   };
 }

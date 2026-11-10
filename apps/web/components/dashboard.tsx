@@ -18,6 +18,7 @@ import { HIDDEN_VALUES_KEY, HiddenValues } from "@/components/hidden-values";
 import { EmptyState, FinancialOverview, PanelHeading } from "@/components/dashboard-panels";
 import { logout } from "@/app/login/actions";
 import { blockedBalances, blockedDeposits } from "@/lib/balances";
+import { charged } from "@/lib/charged.mjs";
 import { displayDate, displayDateWithYear, maskValue, money, moneyTotals, monthRange, timestamp, today } from "@/lib/format";
 import { filterLedger, UNKNOWN_METHOD } from "@/lib/ledger-filter";
 import type { Account, Connection, DashboardData, Entry, Notice } from "@/lib/types";
@@ -106,7 +107,8 @@ function Ledger({ rows, accounts, blocked }: { rows: Entry[]; accounts: Account[
       </div></td>
       <td className="entry-date">{displayDate(row.date)} <small>{row.time ?? "Sem horário"}</small></td>
       <td><EntryStatus row={row} blocked={!!blocked?.has(accountKey(row) + "/" + row.id)} /></td>
-      <td className={row.direction === "CREDIT" ? "amount positive" : "amount"}>{row.direction === "CREDIT" ? "+" : "−"}{money(row.amount, row.currency)}</td>
+      <td className={row.direction === "CREDIT" ? "amount positive" : "amount"}>{row.direction === "CREDIT" ? "+" : "−"}{money(row.amount, row.currency)}
+        {charged(row).currency !== row.currency && <small className="charged">{money(charged(row).amount, charged(row).currency)} cobrados</small>}</td>
     </tr>)}</tbody>
   </table></ScrollArea>;
 }
@@ -116,10 +118,11 @@ function SpendList({ rows, includePending = false }: { rows: Entry[]; includePen
   for (const row of rows) {
     if (!expense(row) || (!includePending && row.status !== "POSTED")) continue;
     const label = row.category || "Sem categoria";
-    const key = row.currency + "/" + label;
-    const group = groups.get(key) ?? { label, currency: row.currency, amount: 0, pending: 0 };
-    group.amount += row.amount;
-    if (row.status === "PENDING") group.pending += row.amount;
+    const { amount, currency } = charged(row);
+    const key = currency + "/" + label;
+    const group = groups.get(key) ?? { label, currency, amount: 0, pending: 0 };
+    group.amount += amount;
+    if (row.status === "PENDING") group.pending += amount;
     groups.set(key, group);
   }
   const sorted = Array.from(groups.values()).sort((a, b) => a.currency.localeCompare(b.currency) || b.amount - a.amount);

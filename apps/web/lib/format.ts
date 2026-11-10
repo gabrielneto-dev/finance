@@ -1,3 +1,4 @@
+import { charged } from "./charged.mjs";
 const zone = "America/Sao_Paulo";
 
 export function today() {
@@ -37,8 +38,14 @@ export function maskValue<T extends string | null | undefined>(hidden: boolean, 
   return hidden && value != null && value !== "—" ? "R$ ••••••" : value;
 }
 
-export function moneyTotals(rows: { amount: number; currency: string }[]) {
+type Charged = Parameters<typeof charged>[0];
+
+// Soma por moeda usando o valor cobrado na moeda da conta quando o banco o informa.
+export function moneyTotals(rows: Charged[]) {
   const totals = new Map<string, number>();
-  for (const row of rows) totals.set(row.currency, (totals.get(row.currency) ?? 0) + row.amount);
+  for (const row of rows) {
+    const { amount, currency } = charged(row);
+    totals.set(currency, (totals.get(currency) ?? 0) + amount);
+  }
   return totals.size ? Array.from(totals, ([currency, amount]) => money(amount, currency)).join(" · ") : "—";
 }

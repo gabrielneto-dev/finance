@@ -63,3 +63,14 @@ test("ignora pendente anterior ao ciclo já fechado", () => {
   const bill = openBill({ card, bills, entries, schedule: [], cycle, reference: "2026-11-10" });
   assert.deepEqual(bill.purchases, [{ amount: 170, currency: "BRL" }]);
 });
+
+test("usa o valor cobrado em reais nas compras em outra moeda", () => {
+  const entries = [
+    entry(100, "2026-11-05"),
+    entry(1000, "2026-11-06", { currency: "USD", accountAmount: 5530, accountCurrency: "BRL" }),
+    entry(40, "2026-11-07", { currency: "USD" }), // sem valor convertido, permanece em dólar
+  ];
+  const bill = openBill({ card, bills, entries, schedule: [], cycle, reference: "2026-11-10" });
+  assert.deepEqual(bill.purchases, [{ amount: 5630, currency: "BRL" }, { amount: 40, currency: "USD" }]);
+  assert.deepEqual(bill.total, [{ amount: 5630, currency: "BRL" }, { amount: 40, currency: "USD" }]);
+});

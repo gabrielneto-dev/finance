@@ -88,7 +88,7 @@ async function fullSync(db, job, item) {
   const entries = [];
   const bills = [];
   for (const row of accounts) {
-    entries.push(...await transactions(row.id));
+    entries.push(...await transactions(row.id, {}, row.currency));
     bills.push(...await fetchBills(row));
   }
   activeWrite(db, job, () => {
@@ -156,8 +156,10 @@ export async function runJob(db, job) {
         for (const id of ids) { remove.run(itemId, accountId, id); removeNotice.run(itemId, accountId, id); }
       });
     }
+    const accountCurrency = db.prepare("SELECT json_extract(data,'$.currency') AS currency FROM accounts WHERE item_id=? AND id=?")
+      .get(itemId, accountId)?.currency ?? null;
     const entries = await transactions(accountId, job.kind === "transactions/created"
-      ? { createdAtFrom } : { ids: ids.join(",") });
+      ? { createdAtFrom } : { ids: ids.join(",") }, accountCurrency);
     return activeWrite(db, job, () => {
       writeBatch(db, itemId, [], entries, []);
       notifyTransfers(db, itemId, entries);
