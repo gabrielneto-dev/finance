@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Activity, ArrowDownLeft, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, CreditCard, Eye, EyeOff, Filter, Landmark, LayoutGrid, Link2, List, LogOut, Pencil, Plus, ReceiptText, RefreshCw, Wallet, X } from "lucide-react";
+import { Activity, ArrowDownLeft, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, CreditCard, ExternalLink, Eye, EyeOff, Filter, Landmark, LayoutGrid, Link2, List, LogOut, Pencil, Plus, ReceiptText, RefreshCw, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -283,6 +283,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
       else {
         if (action === "rename") { setRenaming(null); setMessage("Nome da conexão atualizado."); }
         if (action === "refresh") setMessage("Atualização solicitada.");
+        if (action === "watch") setMessage("Depois de atualizar no Meu Pluggy, os dados novos chegam aqui em poucos minutos.");
         if (action === "import-existing") setMessage(result.alreadyLinked ? "A conexão já está vinculada." : "Importação solicitada.");
         if (action === "disconnect") { setConfirm(null); setMessage("Remoção solicitada."); }
         await refresh();
@@ -547,7 +548,8 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
                   </form>
                   <small className="mt-1 block text-xs text-muted-foreground">Deixe vazio para voltar a {row.name}.</small>
                 </> : <PanelHeading icon={Landmark} title={connectionName(row)} detail={(row.label ? row.name + " · " : "") +
-                  (row.syncedAt ? "Atualizado em " + timestamp(row.syncedAt) : "Aguardando primeira importação")} />}
+                  (row.details?.lastUpdatedAt ? "Sincronizado com o banco em " + timestamp(row.details.lastUpdatedAt)
+                    : row.syncedAt ? "Atualizado em " + timestamp(row.syncedAt) : "Aguardando primeira importação")} />}
                 {row.webhookReceivedAt && row.webhookStatus && <p className="mt-1 text-xs text-muted-foreground">
                   Webhook: {row.webhookEvent} · {timestamp(row.webhookReceivedAt)} · {webhookLabels[row.webhookStatus]}
                 </p>}
@@ -562,6 +564,10 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
                 {renaming?.id !== row.id && <Button variant="outline" disabled={busy} onClick={() => setRenaming({ id: row.id, value:
                   row.label ?? (data.accounts.find((account) => account.itemId === row.id && account.type === "BANK") ??
                     data.accounts.find((account) => account.itemId === row.id))?.name.trim() ?? "" })}><Pencil /> Renomear</Button>}
+                {row.name === "MeuPluggy" && row.status !== "RECONECTAR" && <Button asChild variant="outline">
+                  <a href="https://meu.pluggy.ai" target="_blank" rel="noopener noreferrer" onClick={() => void run("watch", row.id)}>
+                    <ExternalLink /> Atualizar no Meu Pluggy</a>
+                </Button>}
                 {row.status === "RECONECTAR" ? <Button variant="outline" onClick={() => run("token", row.id)} disabled={busy}>Reconectar</Button> :
                   <Button variant="outline" onClick={() => run("refresh", row.id)} disabled={busy || row.status === "IMPORTANDO"}><RefreshCw /> Atualizar</Button>}
                 {confirm === row.id ? <><Button variant="destructive" onClick={() => run("disconnect", row.id)} disabled={busy}>Confirmar remoção</Button>

@@ -96,7 +96,9 @@ export function ConnectionDetails({ connection, accounts, bills, onOpen }: {
     <Fields fields={[
       ["Conectada desde", details?.createdAt && timestamp(details.createdAt)],
       ["Consentimento válido até", details?.consentExpiresAt && timestamp(details.consentExpiresAt)],
-      ["Próxima atualização automática", details?.nextAutoSyncAt && timestamp(details.nextAutoSyncAt)],
+      ["Última sincronização com o banco", details?.lastUpdatedAt && timestamp(details.lastUpdatedAt)],
+      ["Próxima sincronização automática", details?.nextAutoSyncAt && timestamp(details.nextAutoSyncAt)],
+      ["Importado no Finance em", connection.syncedAt && timestamp(connection.syncedAt)],
     ]} />
     {details?.connectorProducts && <Products title="Produtos que o conector oferece" values={details.connectorProducts} />}
     {details?.products && <Products title="Produtos configurados para esta conexão" values={details.products} />}

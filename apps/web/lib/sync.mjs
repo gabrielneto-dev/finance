@@ -66,6 +66,12 @@ async function retrieve(itemId) {
   return item;
 }
 
+function providerDate(value) {
+  return typeof value === "string" && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
+}
+
+const WAITING_STATUSES = ["UPDATING", "CREATED", "CREATING", "QUEUED", "LOGIN_IN_PROGRESS"];
+
 function setState(db, id, status) {
   db.prepare("UPDATE connections SET status=? WHERE id=? AND active=1").run(status, id);
 }
@@ -77,7 +83,7 @@ function activeWrite(db, job, fn) {
 async function fullSync(db, job, item) {
   const itemId = job.item_id;
   if (item.status !== "UPDATED" || item.executionStatus !== "SUCCESS") {
-    const waiting = ["UPDATING", "CREATED", "CREATING", "QUEUED", "LOGIN_IN_PROGRESS"].includes(item.status);
+    const waiting = WAITING_STATUSES.includes(item.status);
     if (waiting) throw new Error("Importação em processamento");
     const status = item.executionStatus === "PARTIAL_SUCCESS" ? "PARCIAL" :
       ["LOGIN_ERROR", "WAITING_USER_INPUT", "WAITING_USER_ACTION"].includes(item.status) ? "RECONECTAR" : "ATENÇÃO";
@@ -95,8 +101,8 @@ async function fullSync(db, job, item) {
     writeBatch(db, itemId, accounts, entries, bills);
     saveConnectionDetails(db, item);
     const now = new Date().toISOString();
-    db.prepare("UPDATE connections SET status='CONECTADA',baseline=CASE WHEN synced_at IS NULL THEN ? ELSE baseline END,synced_at=? WHERE id=?")
-      .run(now, now, itemId);
+    db.prepare(`UPDATE connections SET status='CONECTADA',baseline=CASE WHEN synced_at IS NULL THEN ? ELSE baseline END,synced_at=?,
+      provider_updated_at=COALESCE(?,provider_updated_at) WHERE id=?`).run(now, now, providerDate(item.lastUpdatedAt), itemId);
   });
 }
 
@@ -136,6 +142,23 @@ export async function runJob(db, job) {
     return activeWrite(db, job, () => {
       setState(db, itemId, "IMPORTANDO");
       enqueue(db, { itemId, kind: "initial", delay: 3000 });
+    });
+  }
+
+  if (job.kind === "poll") {
+    if (!linked.synced_at) return complete(db, job);
+    const item = await retrieve(itemId);
+    const updated = providerDate(item.lastUpdatedAt);
+    const healthy = item.status === "UPDATED" && item.executionStatus === "SUCCESS";
+    // Importa só quando a Pluggy sincronizou de novo, ou para refletir um erro novo no estado.
+    if (healthy && updated && (!linked.provider_updated_at || updated > linked.provider_updated_at)) {
+      db.prepare("UPDATE connections SET watch_until=NULL WHERE id=?").run(itemId);
+      return fullSync(db, job, item);
+    }
+    if (!healthy && !WAITING_STATUSES.includes(item.status)) return fullSync(db, job, item);
+    return activeWrite(db, job, () => {
+      saveConnectionDetails(db, item);
+      if (healthy && linked.status !== "CONECTADA") setState(db, itemId, "CONECTADA");
     });
   }
 

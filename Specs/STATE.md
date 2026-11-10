@@ -2,6 +2,7 @@
 
 Atualizado em 2026-11-10.
 
+- Em andamento. [SPEC-0002](features/SPEC-0002--atualizacao-frequente/spec.md), atualização mais frequente. A fase 1 está implementada: o worker consulta o Item de hora em hora, a cada 10 minutos perto da sincronização prevista e a cada 2 minutos depois do atalho para o Meu Pluggy. Ele importa só quando a Pluggy sincroniza. SPEC-0002-T001 e T002 estão concluídas, com Conexões conferida no navegador. Falta ver a sincronização diária chegar sozinha (T003). [Evidência](features/SPEC-0002--atualizacao-frequente/verification.md).
 - Funcionalidade em foco. [SPEC-0001](features/SPEC-0001--mvp-finance/spec.md), MVP web com SQLite para os dados financeiros e Android previsto para etapa posterior.
 - Próxima etapa. Para homologação pública, configurar Supabase Auth e publicar web e worker atrás do domínio HTTPS. Depois, conferir a entrega pelo Dashboard da Pluggy. [Roteiro de teste](../README.md#testar-a-entrega-pelo-dashboard-da-pluggy). Android em etapa posterior.
 - Provedor. Connect Token emitido e escopo validado na API. O widget web abriu e aguarda o aceite dos termos para provar o callback. Retorno no Android e entrega de webhook pendentes.

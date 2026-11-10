@@ -1,0 +1,10 @@
+# Tarefas da atualização frequente
+
+| ID | Objetivo | Requisitos | Dependências | Estado | Critério de conclusão |
+| --- | --- | --- | --- | --- | --- |
+| SPEC-0002-T001 | Consulta periódica do Item no worker | REQ-001 | — | completed | Tarefa `poll`, colunas `provider_updated_at`, `polled_at` e `watch_until` e agenda em `lib/poll.mjs` implementadas. Os 10 testes sintéticos passam. [Evidência](verification.md#consulta-periódica). |
+| SPEC-0002-T002 | Situação da sincronização em Conexões | REQ-002 | SPEC-0002-T001 | completed | Última sincronização, próxima prevista e atalho para o Meu Pluggy visíveis e conferidos no navegador. O atalho ativa a vigilância e o worker consulta no minuto seguinte. [Evidência](verification.md#situação-em-conexões). |
+| SPEC-0002-T003 | Verificar a fase 1 com a conexão real | REQ-001, REQ-002 | SPEC-0002-T001, SPEC-0002-T002 | in_progress | Uma sincronização da Pluggy aparece no painel sem clique. Nenhum 423 causado pelas leituras. Evidência registrada sem valores reais. |
+| SPEC-0002-T004 | Expor o Finance por HTTPS e inscrever webhooks | REQ-003 | SPEC-0002-T003. Decisão entre túnel e hospedagem. | blocked | Painel autenticado, webhooks inscritos com segredo e entrega real de `item/updated` e `transactions/*` processada. |
+| SPEC-0002-T005 | Consultar a Pluggy sobre a aplicação de produção | REQ-004 | — | blocked | Ação do usuário. Preço, agenda, limite de `PATCH` e divisão de cota respondidos, com a decisão registrada em `Context/`. |
+| SPEC-0002-T006 | Migrar para Item Open Finance direto | REQ-004 | SPEC-0002-T005 | pending | Novo Item importado e conferido, Item MeuPluggy desvinculado, `PATCH` com intervalo mínimo tratado e aviso de limite mensal em Conexões. |

@@ -55,10 +55,14 @@ export function openDatabase(filename) {
   if (!hasDetails()) atomic(db, () => {
     if (!hasDetails()) db.exec("ALTER TABLE connections ADD COLUMN details TEXT");
   });
-  const hasLabel = () => db.prepare("PRAGMA table_info(connections)").all().some(({ name }) => name === "label");
-  if (!hasLabel()) atomic(db, () => {
-    if (!hasLabel()) db.exec("ALTER TABLE connections ADD COLUMN label TEXT");
-  });
+  // Colunas acrescentadas depois da primeira versão. polled_at e watch_until guardam a agenda da
+  // consulta periódica, e provider_updated_at, o lastUpdatedAt da Pluggy já importado (SPEC-0002).
+  for (const [column, type] of [["label", "TEXT"], ["provider_updated_at", "TEXT"], ["polled_at", "INTEGER"], ["watch_until", "INTEGER"]]) {
+    const has = () => db.prepare("PRAGMA table_info(connections)").all().some(({ name }) => name === column);
+    if (!has()) atomic(db, () => {
+      if (!has()) db.exec("ALTER TABLE connections ADD COLUMN " + column + " " + type);
+    });
+  }
   db.exec("CREATE INDEX IF NOT EXISTS jobs_webhooks ON jobs(item_id, received_at DESC) WHERE received_at IS NOT NULL");
   return db;
 }
@@ -171,6 +175,7 @@ export function saveConnectionDetails(db, item) {
     createdAt: date(item.createdAt),
     consentExpiresAt: date(item.consentExpiresAt),
     nextAutoSyncAt: date(item.nextAutoSyncAt),
+    lastUpdatedAt: date(item.lastUpdatedAt),
   };
   const name = typeof item.connector?.name === "string" ? item.connector.name.trim().slice(0, 120) : "";
   db.prepare("UPDATE connections SET details=?, name=COALESCE(NULLIF(?,''),name) WHERE id=? AND active=1")

@@ -29,6 +29,7 @@ export type Connection = {
   details?: {
     products: string[] | null; connectorProducts: string[] | null;
     createdAt: string | null; consentExpiresAt: string | null; nextAutoSyncAt: string | null;
+    lastUpdatedAt?: string | null;
   } | null;
 };
 export type Installment = {

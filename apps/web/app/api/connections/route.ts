@@ -3,6 +3,7 @@ import { owner } from "@/lib/auth";
 import { atomic, bind, bindExisting, CONNECTION_LABEL_MAX, connection, database, enqueue, normalizeLabel, renameConnection } from "@/lib/db.mjs";
 import { existingItemId, origin, sandbox, uuid } from "@/lib/config.mjs";
 import { pluggy } from "@/lib/pluggy.mjs";
+import { watchConnection } from "@/lib/poll.mjs";
 
 const response = (body: object, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
@@ -86,6 +87,10 @@ export async function POST(request: Request) {
       const label = normalizeLabel(body.label);
       if (label === undefined) return response({ error: "Use um nome com até " + CONNECTION_LABEL_MAX + " caracteres." }, 400);
       return renameConnection(db, user, itemId, label) ? response({ ok: true }) : response({ error: "Conexão indisponível." }, 404);
+    }
+    if (action === "watch") {
+      // Depois de atualizar no app Meu Pluggy, consulta a Pluggy com mais frequência por alguns minutos.
+      return watchConnection(db, user, itemId) ? response({ ok: true }, 202) : response({ error: "Conexão indisponível." }, 404);
     }
     if (action === "refresh" || action === "disconnect") {
       atomic(db, () => {
