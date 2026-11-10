@@ -39,7 +39,7 @@ Classificação Full nas fases 1 e 2. A fase 3 é Critical, porque troca a conex
 
 ## Questões abertas
 
-- Fase 2: expor o Finance por túnel HTTPS ou por hospedagem? A homologação pública foi adiada pelo usuário.
+- Fase 2: expor o Finance por túnel HTTPS ou por hospedagem? Respondida em 2026-11-10: túnel da Cloudflare em `finance.vetracompany.com.br`. Ver [decisão](../../../Context/branches/pluggy/decisions/DEC-20261110-endereco-publico.md).
 - Fase 3: preço, plano e agenda aceitos pela Pluggy. Falta saber também se a cota do Open Finance é dividida entre o Item original do Meu Pluggy e um Item direto do mesmo CPF.
 
 [Plano](plan.md) · [Tarefas](tasks.md)

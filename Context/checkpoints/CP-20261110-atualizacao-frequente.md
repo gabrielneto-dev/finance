@@ -4,7 +4,8 @@ type: "checkpoint"
 title: "Melhorias do painel, consulta periódica à Pluggy e publicação na main"
 branch: "global"
 tags: ["escopo", "pluggy", "seguranca"]
-status: "active"
+status: "superseded"
+superseded_by: "CTX-CP-20261110-webhooks-endereco-real"
 created_at: "2026-11-10"
 updated_at: "2026-11-10"
 supersedes: ["CTX-CP-20261109-validacao-web"]
