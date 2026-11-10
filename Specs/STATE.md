@@ -1,6 +1,6 @@
 # Estado do desenvolvimento
 
-Atualizado em 2026-11-09.
+Atualizado em 2026-11-10.
 
 - Funcionalidade em foco. [SPEC-0001](features/SPEC-0001--mvp-finance/spec.md), MVP web com SQLite para os dados financeiros e Android previsto para etapa posterior.
 - Próxima etapa. Para homologação pública, configurar Supabase Auth e publicar web e worker atrás do domínio HTTPS. Depois, conferir a entrega pelo Dashboard da Pluggy. [Roteiro de teste](../README.md#testar-a-entrega-pelo-dashboard-da-pluggy). Android em etapa posterior.
@@ -24,3 +24,4 @@ Atualizado em 2026-11-09.
 - Atualização MeuPluggy. A Pluggy recusa atualização pedida pela API para conexões MeuPluggy. O Atualizar agora reimporta o que a Pluggy já sincronizou. O worker encerra erros definitivos e registra o motivo. Validado no painel real. [Detalhes](features/SPEC-0001--mvp-finance/pluggy-data.md#atualização-de-conexões-meupluggy).
 - Lançamentos ainda a caminho (REQ-015). Descartado. O aviso foi removido a pedido do usuário, que o considerou poluição visual. Compras do cartão chegam do banco com dois a três dias de atraso. [Registro](features/SPEC-0001--mvp-finance/verification.md#lançamentos-ainda-a-caminho).
 - Repositório. Git criado em 2026-11-09, com o commit inicial `687eea5` publicado em `gabrielneto-dev/finance`, que é público. Contexto para retomar em [checkpoint](../Context/checkpoints/CP-20261109-validacao-web.md).
+- Ocultar saldos e faturas (REQ-016). Um botão no topo da web mascara saldos, limites, cheque especial e valores de fatura. Lançamentos, entradas e saídas, gastos e parcelas continuam visíveis, e a escolha fica salva no navegador. Verificado no painel real em 2026-11-10. [Evidência](features/SPEC-0001--mvp-finance/verification.md#ocultar-saldos-e-faturas).

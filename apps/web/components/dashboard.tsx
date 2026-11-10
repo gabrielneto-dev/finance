@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Activity, ArrowDownLeft, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, CreditCard, Filter, Landmark, LayoutGrid, Link2, List, LogOut, Plus, ReceiptText, RefreshCw, Wallet, X } from "lucide-react";
+import { Activity, ArrowDownLeft, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, CreditCard, Eye, EyeOff, Filter, Landmark, LayoutGrid, Link2, List, LogOut, Plus, ReceiptText, RefreshCw, Wallet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -12,9 +12,10 @@ import { CreditCardSummary } from "@/components/credit-card-summary";
 import { CardClosing } from "@/components/card-closing";
 import { InstallmentList } from "@/components/installment-list";
 import { ConnectionDetails } from "@/components/connection-details";
+import { HIDDEN_VALUES_KEY, HiddenValues } from "@/components/hidden-values";
 import { EmptyState, FinancialOverview, PanelHeading } from "@/components/dashboard-panels";
 import { logout } from "@/app/login/actions";
-import { displayDate, displayDateWithYear, money, moneyTotals, monthRange, timestamp } from "@/lib/format";
+import { displayDate, displayDateWithYear, maskValue, money, moneyTotals, monthRange, timestamp } from "@/lib/format";
 import { filterLedger, UNKNOWN_METHOD } from "@/lib/ledger-filter";
 import type { Account, DashboardData, Entry, Notice } from "@/lib/types";
 
@@ -92,6 +93,8 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
 }) {
   const [view, setView] = useState<View>(initial);
   const [data, setData] = useState(empty);
+  const [valuesHidden, setValuesHidden] = useState(false);
+  const mask = <T extends string | null | undefined>(value: T) => maskValue(valuesHidden, value);
   const [range, setRange] = useState(monthRange);
   const [selected, setSelected] = useState("");
   const [method, setMethod] = useState("");
@@ -147,6 +150,15 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
       if (version === refreshVersion.current) setLoading(false);
     }
   }, [range, includeInstallments, includeCycles, openedBill]);
+
+  // Lido antes da primeira resposta da API, para os saldos não aparecerem por um instante.
+  useEffect(() => { setValuesHidden(localStorage.getItem(HIDDEN_VALUES_KEY) === "1"); }, []);
+
+  function toggleValues() {
+    const next = !valuesHidden;
+    setValuesHidden(next);
+    localStorage.setItem(HIDDEN_VALUES_KEY, next ? "1" : "0");
+  }
 
   useEffect(() => {
     void refresh();
@@ -268,7 +280,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
     </dl>
   </section>;
 
-  return <div className="shell">
+  return <HiddenValues.Provider value={valuesHidden}><div className="shell">
     <aside className="sidebar">
       <div className="brand"><span className="brand-icon"><Wallet size={20} /></span><div><strong>Finance</strong><span>Meu espaço financeiro</span></div></div>
       <p className="nav-label">PAINEL</p>
@@ -282,6 +294,9 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
         <span>Painel financeiro</span>
       </div><div className="top-actions">
         {lastSync && <small><span className="status-dot" /> Sincronizado em {timestamp(lastSync)}</small>}
+        <Button variant="outline" size="icon" aria-pressed={valuesHidden} onClick={toggleValues}
+          aria-label={valuesHidden ? "Mostrar saldos e faturas" : "Ocultar saldos e faturas"}
+          title={valuesHidden ? "Mostrar saldos e faturas" : "Ocultar saldos e faturas"}>{valuesHidden ? <EyeOff /> : <Eye />}</Button>
         <Button ref={noticeButton} variant="outline" size="icon" className="notice-trigger" aria-label={data.unread + " notificações não lidas"} aria-expanded={notifications}
           onClick={() => setNotifications(!notifications)}><Bell />{data.unread > 0 && <span>{data.unread > 99 ? "99+" : data.unread}</span>}</Button>
       </div>
@@ -337,7 +352,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
         {view === "overview" && <ScrollArea className="overview-body" overflow="layout">
           <FinancialOverview
             balanceLabel={chosen?.type === "CREDIT" ? "Valor em aberto" : "Saldo atual"}
-            balance={moneyTotals(accountBalances)}
+            balance={mask(moneyTotals(accountBalances))}
             income={moneyTotals(posted.filter((row) => row.direction === "CREDIT"))}
             expense={moneyTotals(posted.filter((row) => row.direction === "DEBIT"))}
           />
@@ -410,18 +425,18 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
           <ScrollArea asChild><CardContent className="panel-scroll bill-list" role="region" aria-label="Lista de faturas" tabIndex={0}>{!card ? <EmptyState icon={CreditCard}>Nenhum cartão disponível nas instituições conectadas.</EmptyState> : <>
             {openBill.length > 0 && <div className="bill-row bill-estimate">
               <PanelHeading icon={Activity} title="Compras pendentes no período" detail="Estimativa do ciclo aberto" />
-              <strong className="amount">{moneyTotals(openBill)}</strong>
+              <strong className="amount">{mask(moneyTotals(openBill))}</strong>
             </div>}
             {!bills.length && <EmptyState icon={ReceiptText}>Nenhuma fatura oficial disponível para este cartão.</EmptyState>}
             {bills.map((bill) => <div className="bill-item" key={bill.id} id={"bill-" + bill.id}>
               <div className="bill-row">
                 <div>
                   <PanelHeading icon={ReceiptText} title={"Vencimento " + displayDateWithYear(bill.due)} detail={"Fechamento " + displayDateWithYear(bill.closes)} />
-                  {bill.minimumPayment != null && <small className="mt-1">Pagamento mínimo: {money(bill.minimumPayment, bill.currency)}</small>}
+                  {bill.minimumPayment != null && <small className="mt-1">Pagamento mínimo: {mask(money(bill.minimumPayment, bill.currency))}</small>}
                   {bill.allowsInstallments != null && <small>{bill.allowsInstallments ? "Permite parcelamento" : "Sem opção de parcelamento"}</small>}
                 </div>
                 <Badge variant="secondary">Fatura oficial</Badge>
-                <strong className="amount">{money(bill.amount, bill.currency)}</strong>
+                <strong className="amount">{mask(money(bill.amount, bill.currency))}</strong>
                 <Button variant="outline" aria-expanded={billId === bill.id} onClick={() => setBillId(billId === bill.id ? "" : bill.id)}>{billId === bill.id ? "Ocultar compras" : "Ver compras"} <ChevronDown aria-hidden="true" /></Button>
               </div>
               {openedBill === bill.id && <div className="bill-purchases">
@@ -480,5 +495,5 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
       onSuccess={({ item }) => widgetSuccess(item.id)} onClose={() => setWidget(null)}
       onError={() => { setWidget(null); setMessage("A conexão não foi concluída. Tente novamente."); }}
       onLoadError={() => { setWidget(null); setMessage("Não foi possível abrir o Pluggy Connect."); }} />}
-  </div>;
+  </div></HiddenValues.Provider>;
 }

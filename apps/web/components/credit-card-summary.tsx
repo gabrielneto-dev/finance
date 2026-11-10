@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { EmptyState, PanelHeading } from "@/components/dashboard-panels";
 import { InstallmentList } from "@/components/installment-list";
 import { CardClosing, closingDate } from "@/components/card-closing";
+import { useMaskValue } from "@/components/hidden-values";
 import { displayDate, money } from "@/lib/format";
 import type { Account, CardCycle, Installment } from "@/lib/types";
 
@@ -19,6 +20,7 @@ type CreditCardSummaryProps = {
 };
 
 export function CreditCardSummary({ card, institution, selector, installments, cycle, onOpenBills }: CreditCardSummaryProps) {
+  const mask = useMaskValue();
   return (
     <Card className="panel-card credit-panel">
       <CardHeader className="section-header">
@@ -45,7 +47,7 @@ export function CreditCardSummary({ card, institution, selector, installments, c
                 <dl>
                   <div className="credit-balance">
                     <dt>Valor em aberto informado</dt>
-                    <dd>{card.balance === null ? "Não informado" : money(card.balance, card.currency)}</dd>
+                    <dd>{card.balance === null ? "Não informado" : mask(money(card.balance, card.currency))}</dd>
                   </div>
                   <div className="credit-dates">
                     <div>

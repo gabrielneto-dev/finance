@@ -65,3 +65,7 @@ Correção localizada. Em Gastos, usar a mesma lista filtrada para o total e as 
 ## Próximo fechamento do cartão
 
 Classificação Critical por calcular uma data financeira. Usar dados oficiais da conta e de faturas primeiro. Para estimar, usar os fechamentos recentes do próprio cartão e o intervalo até o vencimento quando houver um vencimento de ciclo novo. Sem data oficial anterior, procurar o intervalo entre a última compra da fatura anterior e a primeira compra da seguinte, sem tratar datas de parcelas posteriores como datas de compra. Limitar a inferência a faturas de ciclos consecutivos com uma janela curta. Pagamento da fatura não é evidência do dia de fechamento. Exibir fonte da data em Cartões e Gastos, incluindo a falta de evidência. Calcular sob demanda com escopo autenticado. Não gravar a data estimada sobre campos oficiais.
+
+## Ocultar saldos e faturas
+
+Classificação Lightweight. A mudança fica na interface e não altera API, banco ou integração. Um contexto React guarda a preferência, e cada ponto que exibe saldo, limite ou fatura aplica a máscara. Lançamentos individuais e agregados de movimentação seguem visíveis, porque o usuário pediu para ocultar apenas valores de conta e fatura. A preferência fica no `localStorage` do navegador. Validar no painel local alternando o botão em Visão geral, Cartões, Faturas e Conexões e conferir a persistência após recarregar.

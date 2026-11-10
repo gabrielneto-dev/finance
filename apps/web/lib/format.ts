@@ -32,6 +32,11 @@ export function timestamp(date: string | null) {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: zone }).format(new Date(date));
 }
 
+// Saldos, limites e faturas podem ser ocultados; lançamentos ficam sempre visíveis (REQ-016).
+export function maskValue<T extends string | null | undefined>(hidden: boolean, value: T): T | string {
+  return hidden && value != null && value !== "—" ? "R$ ••••••" : value;
+}
+
 export function moneyTotals(rows: { amount: number; currency: string }[]) {
   const totals = new Map<string, number>();
   for (const row of rows) totals.set(row.currency, (totals.get(row.currency) ?? 0) + row.amount);

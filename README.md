@@ -6,7 +6,7 @@ Painel web pessoal para consultar saldos, extrato, gastos, cartões e faturas. A
 
 Preencha as credenciais da aplicação Pluggy no `.env` da raiz. Para importar um Item real existente, use `PLUGGY_SANDBOX=0` e defina `PLUGGY_EXISTING_ITEM_ID`. Configure `APP_ORIGIN=http://127.0.0.1:3001`.
 
-Se ainda não houver uma chave local, gere uma com `(umask 077 && set -C && openssl rand -hex 32 > .env.local-login)`. Guarde em `FINANCE_LOCAL_KEY_HASH` no `.env` o SHA-256 da chave sem a quebra de linha. Para calcular o valor, execute `tr -d '\n' < .env.local-login | sha256sum` e copie a primeira coluna. Mantenha os dois arquivos privados. Para rotacionar a chave, gere uma nova e atualize o hash. As sessões anteriores deixam de valer após reiniciar o painel.
+Se ainda não houver uma chave local, gere uma com `(umask 077 && set -C && openssl rand -hex 32 > .env.local-login)`. Guarde em `FINANCE_LOCAL_KEY_HASH` no `.env` o SHA-256 da chave sem a quebra de linha. Para calcular o valor, execute `tr -d '\r\n' < .env.local-login | sha256sum` e copie a primeira coluna. O `\r` cobre o `openssl` do Windows, que grava a chave com quebra de linha CRLF. Mantenha os dois arquivos privados. Para rotacionar a chave, gere uma nova e atualize o hash. As sessões anteriores deixam de valer após reiniciar o painel.
 
 Rode os dois serviços em terminais separados na raiz do projeto:
 

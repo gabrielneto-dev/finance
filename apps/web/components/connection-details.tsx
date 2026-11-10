@@ -1,6 +1,7 @@
 import { CreditCard, Landmark, List, ReceiptText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useMaskValue } from "@/components/hidden-values";
 import { displayDate, money, timestamp } from "@/lib/format";
 import type { Account, Bill, Connection } from "@/lib/types";
 
@@ -42,7 +43,8 @@ function AccountDetails({ account, billCount, onLedger, onCard, onBills }: {
 }) {
   const { bank, credit } = account;
   const isCard = account.type === "CREDIT";
-  const format = (value?: number | null) => value == null ? null : money(value, account.currency);
+  const mask = useMaskValue();
+  const format = (value?: number | null) => value == null ? null : mask(money(value, account.currency));
   const Icon = isCard ? CreditCard : Landmark;
   return <article className="grid gap-3 rounded-lg border bg-card p-3">
     <div className="flex min-w-0 items-start gap-2">
@@ -68,7 +70,7 @@ function AccountDetails({ account, billCount, onLedger, onCard, onBills }: {
       ["Modalidade", credit?.holderType && (holderTypes[credit.holderType] ?? credit.holderType)],
       ["Limite total", format(credit?.limit)], ["Limite disponível", format(credit?.availableLimit)],
       ["Pagamento mínimo", format(credit?.minimumPayment)],
-      ["Saldo em dólares", credit?.foreignBalance == null ? null : money(credit.foreignBalance, "USD")],
+      ["Saldo em dólares", credit?.foreignBalance == null ? null : mask(money(credit.foreignBalance, "USD"))],
       ["Fechamento", account.closes && displayDate(account.closes)],
       ["Vencimento", account.due && displayDate(account.due)],
     ]} />

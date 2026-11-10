@@ -127,6 +127,12 @@ Em 2026-11-08, a conexão real recusou `PATCH /items/{id}` com HTTP 400 e a mens
 
 Com o worker corrigido, a tarefa que estava travada foi concluída e a reimportação atualizou a conexão sem erro no log. Um novo clique em Atualizar foi concluído em cerca de dois segundos, e o painel mostrou a sincronização no mesmo minuto. Lançamentos de 7 de novembro ainda não estavam na Pluggy, cuja próxima sincronização automática era em 9 de novembro.
 
+## Ocultar saldos e faturas
+
+REQ-016 · 2026-11-10 · PASS na web. Um teste unitário cobre a máscara, a ausência de dígitos no valor oculto e a preservação de campos ausentes. Os 18 testes web, a checagem de tipos e o build passaram.
+
+No painel local com a conexão real, o botão do topo ocultou o saldo atual na Visão geral, o valor em aberto em Cartões, a estimativa do ciclo aberto, o valor e o pagamento mínimo das faturas em Faturas e os dez campos de saldo, limite e cheque especial em Conexões. Movimentações recentes, entradas, saídas, gastos por categoria e parcelas continuaram visíveis. Depois de recarregar a página, a preferência foi mantida. Ao clicar de novo, nenhum valor ficou mascarado. Limite: a preferência vale por navegador e não se aplica ao Android, que ainda não existe.
+
 ## Definição da stack
 
 Em 2026-11-08, SPEC-0001-T001 passou em revisão documental. O [plano](plan.md) registra as escolhas e as fontes primárias sobre SDKs Pluggy, deep links no Expo, Route Handlers e autenticação. O público de uso pessoal é uma premissa da prova. A execução do widget, o retorno OAuth no Android e os demais critérios do produto continuam em `NOT_RUN`.

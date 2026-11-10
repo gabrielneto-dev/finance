@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "finance-web-start",
-      "runtimeExecutable": "bash",
-      "runtimeArgs": ["-c", "umask 077 && npm --prefix apps/web run start -- --hostname 127.0.0.1 --port 3001"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "apps/web", "run", "start", "--", "--hostname", "127.0.0.1", "--port", "3001"],
       "port": 3001,
+      "autoPort": false,
       "url": "http://127.0.0.1:3001"
     }
   ]
