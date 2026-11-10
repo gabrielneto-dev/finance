@@ -167,7 +167,7 @@ Com as conexões reais, a sincronização regravou as parcelas dos dois emissore
 
 ## Compras da fatura aberta
 
-REQ-019 · 2026-11-10 · PASS na web. A pedido do usuário, a fatura aberta ganhou o botão "Ver compras", como as faturas oficiais. Ele lista as compras do ciclo e as parcelas importadas com o lançamento original, em ordem de data, e as parcelas previstas à parte, agrupadas por mês. O backend devolve esses itens com a fatura aberta. Um teste com dados sintéticos cobre a ordem da lista e a separação das previsões. Os 32 testes web, a checagem de tipos e o build passaram. Com as conexões reais, a soma dos itens listados bateu com o total exibido nos dois cartões.
+REQ-019 · 2026-11-10 · PASS na web. A pedido do usuário, a fatura aberta ganhou o botão "Ver compras", como as faturas oficiais. Ele lista as compras do ciclo e as parcelas importadas com o lançamento original, em ordem de data, e as parcelas previstas à parte, agrupadas por mês. O backend devolve esses itens com a fatura aberta. Um teste com dados sintéticos cobre a ordem da lista e a separação das previsões. Os 32 testes web, a checagem de tipos e o build passaram. Com as conexões reais, a soma dos itens listados bateu com o total exibido nos dois cartões. Depois, a roda do mouse não rolava a lista com o cursor sobre a tabela, porque a tabela era uma área de rolagem própria dentro do painel. Dentro de um painel que já rola, a tabela deixou de rolar sozinha, o que também vale para as compras das faturas oficiais. A rolagem foi conferida com a roda sobre a tabela, nos dois sentidos, e o Extrato manteve a rolagem própria.
 
 ## Renomear conexões
 
