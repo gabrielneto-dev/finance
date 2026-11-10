@@ -4,10 +4,11 @@ type: "checkpoint"
 title: "Validação web local, sincronização MeuPluggy e publicação no GitHub"
 branch: "global"
 tags: ["escopo", "pluggy", "seguranca"]
-status: "active"
+status: "superseded"
 created_at: "2026-11-09"
-updated_at: "2026-11-09"
+updated_at: "2026-11-10"
 supersedes: ["CTX-CP-20261108-finance-real"]
+superseded_by: "CTX-CP-20261110-atualizacao-frequente"
 related: ["CTX-DEC-20261108-ciclos-cartao", "CTX-DEC-20261109-atualizacao-conexoes", "CTX-DEC-20261109-sem-avisos-de-atraso", "CTX-RES-20261109-sincronizacao-meupluggy", "CTX-NTE-20261109-ambiente-local", "CTX-RSK-20261109-repositorio-publico"]
 ---
 

@@ -67,6 +67,14 @@ A Pluggy afirma que um único Item por CPF e instituição, com até 4 atualiza�
   - a agenda que eles aceitam configurar;
   - se a cota do Open Finance é dividida entre o Item original do Meu Pluggy e um Item direto do mesmo CPF.
 
+## Observado na fase 1 (2026-11-10)
+
+- Nas duas conexões reais, `lastUpdatedAt` fica 24 horas antes de `nextAutoSyncAt`. Isso confirma a rodada diária do Item original.
+- Uma atualização manual no app Meu Pluggy remarca `nextAutoSyncAt` para 24 horas depois dela. Atualizar à tarde empurra a rodada automática do dia seguinte para o mesmo horário.
+- Com a vigilância de 2 minutos, o Finance importou cerca de um a dois minutos depois de a Pluggy terminar. O Mercado Pago não trouxe lançamento novo. O Santander trouxe compras pendentes do cartão de um e dois dias antes e um lançamento da conta do mesmo dia.
+- O Meu Pluggy lista três conexões compartilhadas com o app do Finance ("Meu Assessor"), sendo duas da mesma instituição, enquanto o Finance usa uma. Se a sobra for um Item ativo, ela pode dividir a cota do Open Finance. O usuário decide se revoga.
+- A cota não foi medida no Dashboard da Pluggy. Nenhum `423` apareceu nas conexões.
+
 ## Recomendação
 
 Primeiro, resolver a etapa Pluggy → Finance sem custo: consultar periodicamente e ligar o webhook real quando houver HTTPS público. Depois, decidir com o usuário se vale contratar uma aplicação de produção para ter até 4 rodadas por dia. O plano de execução está na [SPEC-0002](../../../../Specs/features/SPEC-0002--atualizacao-frequente/spec.md).
