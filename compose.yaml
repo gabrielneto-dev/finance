@@ -2,7 +2,8 @@ services:
   web:
     build: ./apps/web
     image: finance-web:local
-    env_file: .env
+    # FINANCE_ENV_FILE=.env.production separa a produção do .env de desenvolvimento na mesma máquina.
+    env_file: ${FINANCE_ENV_FILE:-.env}
     environment:
       FINANCE_DB_PATH: /data/finance.sqlite
     ports:
@@ -21,7 +22,7 @@ services:
       web:
         condition: service_healthy
     command: ["node", "scripts/worker.mjs"]
-    env_file: .env
+    env_file: ${FINANCE_ENV_FILE:-.env}
     environment:
       FINANCE_DB_PATH: /data/finance.sqlite
     volumes:
