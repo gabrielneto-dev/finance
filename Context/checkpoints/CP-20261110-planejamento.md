@@ -37,4 +37,12 @@ O usuário pediu uma aba de planejamento: caixinhas ("tanto para gastar aqui, ta
   3. T012, os investimentos pela Pluggy, que precisam da reautorização do usuário.
   4. T013, a verificação final.
 - **SPEC-0002 sem mudança.** Faltam T004 (túnel e webhooks) e T003 (ver a sincronização diária chegar sozinha).
+- **Troca de máquina (2026-11-10).** O usuário vai continuar na outra máquina, com pull da `main`. Lá:
+  - rode `npm ci` em `apps/web`, porque entrou o Recharts, e depois `npm run build`;
+  - `.env` e SQLite não vão pelo Git. Na outra máquina eles ficam no worktree da sessão antiga e provavelmente têm as **chaves antigas** da Pluggy e o **Item antigo**, que responde 404 com as chaves novas;
+  - o usuário copia as credenciais novas para o `.env` por conta própria, nunca pelo Git nem pelo agente;
+  - depois, reconecta o MeuPluggy pelo widget em Conexões, como na máquina Linux, ou copia o SQLite desta máquina;
+  - as tabelas `category_overrides` e `category_rules` são criadas sozinhas ao abrir o painel.
+
+  Ver a [nota do ambiente](../global/notes/NTE-20261109-ambiente-local.md).
 - **Retomada.** Leia o [estado SDD](../../Specs/STATE.md), a [spec](../../Specs/features/SPEC-0004--planejamento/spec.md) e as [tarefas](../../Specs/features/SPEC-0004--planejamento/tasks.md). Para rodar, siga a [nota do ambiente](../global/notes/NTE-20261109-ambiente-local.md).
