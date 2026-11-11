@@ -6,6 +6,7 @@ import { existingItemId, origin, sandbox, uuid } from "@/lib/config.mjs";
 import { pluggy, PluggyError } from "@/lib/pluggy.mjs";
 import { watchConnection } from "@/lib/poll.mjs";
 import { parseChoice, setEntryChoice, setRuleChoice } from "@/lib/analytics/choices.mjs";
+import { connectOptions } from "@/lib/connect.mjs";
 
 const response = (body: object, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
@@ -59,18 +60,16 @@ export async function POST(request: Request) {
   try {
     if (action === "token") {
       if (itemId && !linked?.active) return response({ error: "Conexão indisponível." }, 404);
-      const appOrigin = origin();
-      const options = appOrigin.startsWith("https://") ? { oauthRedirectUri: appOrigin + "/pluggy/retorno" } : {};
       const intent = itemId ? null : randomUUID();
       if (intent) {
         db.prepare("DELETE FROM intents WHERE expires<?").run(Date.now());
         db.prepare("INSERT INTO intents VALUES(?,?,?)").run(intent, user, Date.now() + 2 * 60 * 60_000);
       }
-      // Investimentos entram nas conexões novas e na reautorização (SPEC-0004, REQ-009).
-      const products = ["ACCOUNTS", "TRANSACTIONS", "CREDIT_CARDS", "INVESTMENTS", "INVESTMENTS_TRANSACTIONS"];
+      // Investimentos entram nas conexões novas e na reautorização (SPEC-0004, REQ-009). O app recebe o
+      // retorno do OAuth por deep link; o web, pela própria origem HTTPS (SPEC-0005, REQ-008).
       const request = (withProducts: boolean) => pluggy("/connect_token", "POST", {
         ...(itemId ? { itemId } : {}),
-        options: { ...options, ...(intent ? { clientUserId: intent } : {}), ...(withProducts ? { products } : {}) },
+        options: connectOptions({ appOrigin: origin(), client: body.client, intent, withProducts }),
       });
       let token;
       try {
