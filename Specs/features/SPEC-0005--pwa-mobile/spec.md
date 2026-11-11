@@ -1,7 +1,7 @@
 ---
 id: "SPEC-0005"
 title: "Finance no celular como PWA"
-status: "draft"
+status: "active"
 created_at: "2026-11-11"
 updated_at: "2026-11-11"
 priority: "next"

@@ -1,6 +1,6 @@
 # Plano do Finance no celular (PWA)
 
-Fase 3, versão para aprovação. Escrito em 2026-11-11. Nenhum código de produção foi escrito.
+Fase 3, aprovada pelo usuário em 2026-11-11. O Marco 0 está em andamento.
 Rastreio SDD: [SPEC-0005](../Specs/features/SPEC-0005--pwa-mobile/spec.md).
 
 Convenção usada no texto:
@@ -197,6 +197,8 @@ Notas:
 Cada marco termina com lint ou type-check, testes e build rodados, um relatório com os resultados reais, e uma parada para a sua validação.
 
 ### Marco 0: backend público e sessão estável (pré-requisito)
+
+Passo a passo da parte operacional: [marco0-deploy.md](marco0-deploy.md).
 
 Tarefas:
 1. Criar o projeto Supabase e o seu usuário, com cadastro aberto desligado.
