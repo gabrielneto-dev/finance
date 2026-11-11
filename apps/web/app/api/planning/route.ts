@@ -1,6 +1,6 @@
 import { owner } from "@/lib/auth";
 import { database } from "@/lib/db.mjs";
-import { origin } from "@/lib/config.mjs";
+import { writeAllowed } from "@/lib/request-auth.mjs";
 import { today } from "@/lib/format";
 import { planning } from "@/lib/planning/index.mjs";
 import { applyAction } from "@/lib/planning/actions.mjs";
@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
 // Escritas do Planejamento: Origin, sessão, tamanho e valores conferidos antes de tocar no banco (REQ-010).
 export async function POST(request: Request) {
-  if (request.headers.get("origin") !== origin()) return response({ error: "Origem inválida." }, 403);
+  if (!writeAllowed(request)) return response({ error: "Origem inválida." }, 403);
   const user = await owner();
   if (!user) return response({ error: "Entre para alterar o planejamento." }, 401);
   const text = await request.text().catch(() => "");

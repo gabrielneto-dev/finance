@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { owner } from "@/lib/auth";
+import { writeAllowed } from "@/lib/request-auth.mjs";
 import { atomic, bind, bindExisting, CONNECTION_LABEL_MAX, connection, database, enqueue, normalizeLabel, renameConnection } from "@/lib/db.mjs";
 import { existingItemId, origin, sandbox, uuid } from "@/lib/config.mjs";
 import { pluggy, PluggyError } from "@/lib/pluggy.mjs";
@@ -10,7 +11,7 @@ const response = (body: object, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
 
 export async function POST(request: Request) {
-  if (request.headers.get("origin") !== origin()) return response({ error: "Origem inválida." }, 403);
+  if (!writeAllowed(request)) return response({ error: "Origem inválida." }, 403);
   const user = await owner();
   if (!user) return response({ error: "Entre para acessar as conexões." }, 401);
 

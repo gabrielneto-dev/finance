@@ -1,8 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { origin } from "./config.mjs";
 import { atomic, database } from "./db.mjs";
+import { parseBearer } from "./request-auth.mjs";
 import { AUTH_UNAVAILABLE, sessionCookie, supabaseConfig } from "./session-cookies";
 
 const localCookie = "finance_local_session";
@@ -79,7 +81,12 @@ export function isOwner(email?: string) {
 }
 
 export async function owner() {
+  const request = await headers();
+  // Com Authorization, vale só o token do app, nunca o cookie (SPEC-0005, REQ-004).
+  const bearer = parseBearer(request.get("authorization"));
   if (localLoginEnabled()) {
+    // A chave local é só do navegador em loopback; token do app não vale nesse modo.
+    if (bearer !== undefined) return null;
     const local = await localRequest();
     if (!local) return null;
     const token = (await cookies()).get(localCookie)?.value;
@@ -89,7 +96,17 @@ export async function owner() {
     return session ? localOwner : null;
   }
   // O proxy.ts já tentou renovar a sessão e o Supabase não respondeu: nega sem tentar de novo.
-  if ((await headers()).get(AUTH_UNAVAILABLE)) return null;
+  if (request.get(AUTH_UNAVAILABLE)) return null;
+  if (bearer !== undefined) {
+    const config = supabaseConfig();
+    if (!bearer || !config) return null;
+    const app = createClient(config.url, config.key, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
+    // getUser consulta o Supabase: token revogado ou de sessão encerrada é recusado.
+    const { data: { user } } = await app.auth.getUser(bearer);
+    return user && isOwner(user.email) ? user.id : null;
+  }
   const client = await authClient();
   if (!client) return null;
   const { data: { user } } = await client.auth.getUser();

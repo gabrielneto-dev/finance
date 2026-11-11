@@ -40,6 +40,7 @@ for name in APP_ORIGIN FINANCE_OWNER_EMAIL SUPABASE_URL SUPABASE_PUBLISHABLE_KEY
   [ -n "$(get "$name")" ] || fail "$name está vazio em $ENV_FILE."
 done
 [ -z "$(get FINANCE_LOCAL_KEY_HASH)" ] || fail "FINANCE_LOCAL_KEY_HASH precisa ficar vazio na produção."
+[ -z "$(get FINANCE_DEV_ORIGINS)" ] || fail "FINANCE_DEV_ORIGINS precisa ficar vazio na produção (CORS só de desenvolvimento)."
 origin="$(get APP_ORIGIN)"
 case "$origin" in https://*) ;; *) fail "APP_ORIGIN precisa começar com https://." ;; esac
 case "$origin" in */) fail "APP_ORIGIN não pode terminar com barra." ;; esac
