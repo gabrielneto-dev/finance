@@ -39,6 +39,23 @@ const entries = [
   entry("e6", "conta-1", day(7), "Conta de Luz Teste", "DEBIT", 18_900, "Boleto", "PENDING"),
   entry("e7", "cartao-1", day(4), "Restaurante Exemplo", "DEBIT", 8_750, "Crédito"),
 ];
-writeBatch(db, item, accounts, entries, []);
+
+// Cartão: duas faturas fechadas (dia 3, vencimento dia 10) e compras do ciclo aberto.
+const shift = (delta) => {
+  const [year, value] = month.split("-").map(Number);
+  return new Date(Date.UTC(year, value - 1 + delta, 1)).toISOString().slice(0, 7);
+};
+const bills = [-2, -1].map((delta, index) => ({
+  id: "00000000-0000-4000-8000-0000000000b" + (index + 1), itemId: item, accountId: "cartao-1",
+  closes: shift(delta) + "-03", due: shift(delta) + "-10", currency: "BRL", amount: 120_000 + index * 15_000,
+}));
+const lastBill = bills.at(-1);
+entries.push(
+  { ...entry("e8", "cartao-1", shift(-1) + "-01", "Livraria Exemplo", "DEBIT", 15_000, "Crédito"), billId: lastBill.id },
+  entry("e9", "cartao-1", day(8), "Farmácia Exemplo", "DEBIT", 4_590, "Crédito", "PENDING"),
+  { ...entry("e10", "cartao-1", day(5), "Loja de Eletrônicos Teste", "DEBIT", 30_000, "Crédito"), installment: 2, installments: 3, purchaseDate: shift(-1) + "-05" },
+  { ...entry("e11", "cartao-1", day(6), "Assinatura Exterior Teste", "DEBIT", 1_000, "Crédito"), currency: "USD", accountAmount: 5_480, accountCurrency: "BRL" },
+);
+writeBatch(db, item, accounts, entries, bills);
 db.close();
 console.log("Banco sintético criado em " + file + " para o dono " + owner);

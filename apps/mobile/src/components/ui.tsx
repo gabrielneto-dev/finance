@@ -33,7 +33,46 @@ export function Notice({ title, text, action }: { title: string; text?: string; 
   );
 }
 
+/** Cabeçalho das telas, com ação opcional à direita. */
+export function Header({ title, kicker, right }: { title: string; kicker?: string; right?: ReactNode }) {
+  return (
+    <View style={styles.header}>
+      <View style={{ flex: 1 }}>
+        {kicker ? <Text style={styles.kicker}>{kicker}</Text> : null}
+        <Text style={styles.title} accessibilityRole="header">{title}</Text>
+      </View>
+      {right}
+    </View>
+  );
+}
+
+/** Botão de "ocultar valores" do cabeçalho. */
+export function HideButton({ hidden, onPress }: { hidden: boolean; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} role="switch" aria-checked={hidden}
+      accessibilityLabel="Ocultar valores" style={({ pressed }) => [styles.hide, pressed && styles.pressed]}>
+      <Text style={styles.hideText}>{hidden ? "Mostrar" : "Ocultar"}</Text>
+    </Pressable>
+  );
+}
+
+/** Esqueleto enquanto carrega. */
+export function Skeleton({ heights }: { heights: number[] }) {
+  return (
+    <View style={{ gap: 14 }} accessibilityLabel="Carregando dados" accessibilityRole="progressbar">
+      {heights.map((height, index) => <View key={index} style={[styles.skeleton, { height }]} />)}
+      <ActivityIndicator color={colors.primary} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  header: { flexDirection: "row", alignItems: "flex-end", gap: 12, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8 },
+  kicker: { fontSize: 12, fontWeight: "700", letterSpacing: 1, color: colors.primary },
+  title: { fontSize: 28, fontWeight: "800", color: colors.foreground },
+  hide: { minHeight: TOUCH, minWidth: TOUCH, paddingHorizontal: 12, justifyContent: "center", borderRadius: 10, backgroundColor: colors.secondary },
+  hideText: { fontSize: 15, fontWeight: "600", color: colors.primary },
+  skeleton: { borderRadius: 14, backgroundColor: colors.secondary },
   button: { minHeight: TOUCH, borderRadius: 10, paddingHorizontal: 18, alignItems: "center", justifyContent: "center" },
   primary: { backgroundColor: colors.primary },
   secondary: { backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border },

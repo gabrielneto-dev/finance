@@ -1,9 +1,10 @@
 import { TabList, Tabs, TabSlot, TabTrigger, type TabTriggerSlotProps } from "expo-router/ui";
 import { Pressable, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { PrefsProvider } from "@/lib/prefs";
 import { colors, TOUCH } from "@/theme";
 
-// Abas embaixo, com alvos de 48 dp (SPEC-0005). O Marco 3 acrescenta Extrato e Conexões.
+// Abas embaixo, com alvos de 48 dp (SPEC-0005, REQ-007).
 // O ref do TabTrigger tem o tipo de View, incompatível com o do Pressable no RN 0.88; o toque não precisa dele.
 function TabButton({ label, symbol, isFocused, ref: _ref, ...props }: TabTriggerSlotProps & { label: string; symbol: string }) {
   return (
@@ -18,17 +19,25 @@ function TabButton({ label, symbol, isFocused, ref: _ref, ...props }: TabTrigger
 export default function AppLayout() {
   const insets = useSafeAreaInsets();
   return (
-    <Tabs>
-      <TabSlot style={{ flex: 1 }} />
-      <TabList style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 6) }]}>
-        <TabTrigger name="inicio" href="/" asChild>
-          <TabButton label="Início" symbol="⌂" />
-        </TabTrigger>
-        <TabTrigger name="ajustes" href="/ajustes" asChild>
-          <TabButton label="Ajustes" symbol="⚙" />
-        </TabTrigger>
-      </TabList>
-    </Tabs>
+    <PrefsProvider>
+      <Tabs>
+        <TabSlot style={{ flex: 1 }} />
+        <TabList style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 6) }]}>
+          <TabTrigger name="inicio" href="/" asChild>
+            <TabButton label="Início" symbol="⌂" />
+          </TabTrigger>
+          <TabTrigger name="extrato" href="/extrato" asChild>
+            <TabButton label="Extrato" symbol="☰" />
+          </TabTrigger>
+          <TabTrigger name="conexoes" href="/conexoes" asChild>
+            <TabButton label="Conexões" symbol="⇄" />
+          </TabTrigger>
+          <TabTrigger name="ajustes" href="/ajustes" asChild>
+            <TabButton label="Ajustes" symbol="⚙" />
+          </TabTrigger>
+        </TabList>
+      </Tabs>
+    </PrefsProvider>
   );
 }
 

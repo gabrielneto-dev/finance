@@ -1,75 +1,39 @@
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useState } from "react";
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Button, Card, Notice } from "@/components/ui";
-import { api, ApiError } from "@/lib/api";
-import { overview, overviewQuery, type DashboardData } from "@/lib/overview";
+import { EntryItem, ForecastItem } from "@/components/entries";
+import { Button, Card, Header, HideButton, Notice, Skeleton } from "@/components/ui";
+import { homeQuery, openBills, type OpenBillCard } from "@/lib/ledger";
+import { overview, type DashboardData } from "@/lib/overview";
+import { usePrefs } from "@/lib/prefs";
+import { useApi } from "@/lib/use-api";
 import { colors, TOUCH } from "@/theme";
 
-type State =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  | { status: "ready"; data: DashboardData };
-
-// Tela Início: a Visão geral do web no celular (SPEC-0005, REQ-003).
+// Tela Início: a Visão geral do web e a fatura aberta de cada cartão (SPEC-0005, REQ-003 e REQ-007).
 export default function Home() {
-  const [state, setState] = useState<State>({ status: "loading" });
-  const [refreshing, setRefreshing] = useState(false);
-  const [hidden, setHidden] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      setState({ status: "ready", data: await api<DashboardData>(overviewQuery()) });
-    } catch (error) {
-      setState({ status: "error", message: error instanceof ApiError ? error.message : "Não foi possível carregar os dados." });
-    }
-  }, []);
-
-  useEffect(() => { void load(); }, [load]);
-
-  async function refresh() {
-    setRefreshing(true);
-    await load();
-    setRefreshing(false);
-  }
-
+  const { hidden, setHidden } = usePrefs();
+  const { state, refreshing, refresh, retry } = useApi<DashboardData>(homeQuery());
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.kicker}>FINANÇAS PESSOAIS</Text>
-          <Text style={styles.title} accessibilityRole="header">Início</Text>
-        </View>
-        <Pressable onPress={() => setHidden((value) => !value)} style={styles.eye} accessibilityRole="button"
-          accessibilityLabel={hidden ? "Mostrar valores" : "Ocultar valores"}>
-          <Text style={styles.eyeText}>{hidden ? "Mostrar" : "Ocultar"}</Text>
-        </Pressable>
-      </View>
+      <Header kicker="FINANÇAS PESSOAIS" title="Início" right={<HideButton hidden={hidden} onPress={() => setHidden(!hidden)} />} />
       <ScrollView contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.primary]} />}>
-        <Body state={state} hidden={hidden} retry={() => { setState({ status: "loading" }); void load(); }} />
+        {state.status === "loading" ? <Skeleton heights={[132, 92, 120]} /> : null}
+        {state.status === "error"
+          ? <Notice title="Não foi possível carregar" text={state.message} action={<Button label="Tentar de novo" onPress={retry} />} />
+          : null}
+        {state.status === "ready" ? <Summary data={state.data} hidden={hidden} /> : null}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function Body({ state, hidden, retry }: { state: State; hidden: boolean; retry: () => void }) {
-  if (state.status === "loading") {
-    return (
-      <View style={styles.loading} accessibilityLabel="Carregando dados">
-        <View style={[styles.skeleton, { height: 132 }]} />
-        <View style={[styles.skeleton, { height: 92 }]} />
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
-  }
-  if (state.status === "error") {
-    return <Notice title="Não foi possível carregar" text={state.message} action={<Button label="Tentar de novo" onPress={retry} />} />;
-  }
-  const summary = overview(state.data, hidden);
+function Summary({ data, hidden }: { data: DashboardData; hidden: boolean }) {
+  const summary = overview(data, hidden);
   if (!summary.connections) {
     return <Notice title="Nenhuma conta conectada" text="Conecte uma instituição pelo painel web. A conexão pelo app chega numa próxima versão." />;
   }
+  const bills = openBills(data, hidden);
   return (
     <View style={styles.stack}>
       <Card style={styles.balance}>
@@ -92,25 +56,50 @@ function Body({ state, hidden, retry }: { state: State; hidden: boolean; retry: 
           <Text style={styles.flowHint}>Efetivadas no mês</Text>
         </Card>
       </View>
+      {bills.length
+        ? <View style={styles.stack}>
+            <Text style={styles.section} accessibilityRole="header">Fatura aberta</Text>
+            {bills.map((bill) => <OpenBill key={bill.key} bill={bill} />)}
+          </View>
+        : null}
       {summary.lastSync ? <Text style={styles.sync}>Sincronizado em {summary.lastSync}</Text> : null}
     </View>
   );
 }
 
+function OpenBill({ bill }: { bill: OpenBillCard }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Card style={styles.bill}>
+      <View style={styles.billTop}>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={styles.billCard}>{bill.card}</Text>
+          <Text style={styles.flowHint}>{bill.when}</Text>
+        </View>
+        <Text style={styles.billTotal}>{bill.total}</Text>
+      </View>
+      {bill.parts ? <Text style={styles.flowHint}>{bill.parts}</Text> : null}
+      <Text style={styles.estimate}>Estimativa: pode mudar até o banco fechar a fatura.</Text>
+      <Pressable onPress={() => setOpen(!open)} accessibilityRole="button" accessibilityState={{ expanded: open }}
+        accessibilityLabel={open ? "Ocultar compras da fatura" : "Ver compras da fatura"}
+        style={({ pressed }) => [styles.toggle, pressed && { opacity: 0.8 }]}>
+        <Text style={styles.toggleText}>{open ? "Ocultar compras" : "Ver compras"}</Text>
+      </Pressable>
+      {open
+        ? <View>
+            {bill.entries.map((row) => <EntryItem key={row.key} row={row} />)}
+            {bill.forecast.length ? <Text style={[styles.section, { fontSize: 15, marginTop: 10 }]}>Parcelas previstas</Text> : null}
+            {bill.forecast.map((row) => <ForecastItem key={row.key} row={row} />)}
+          </View>
+        : null}
+    </Card>
+  );
+}
+
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  header: {
-    flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between",
-    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 8,
-  },
-  kicker: { fontSize: 12, fontWeight: "700", letterSpacing: 1, color: colors.primary },
-  title: { fontSize: 28, fontWeight: "800", color: colors.foreground },
-  eye: { minHeight: TOUCH, minWidth: TOUCH, paddingHorizontal: 12, justifyContent: "center", borderRadius: 10, backgroundColor: colors.secondary },
-  eyeText: { fontSize: 15, fontWeight: "600", color: colors.primary },
   content: { padding: 20, paddingTop: 8, gap: 14 },
   stack: { gap: 14 },
-  loading: { gap: 14 },
-  skeleton: { borderRadius: 14, backgroundColor: colors.secondary },
   balance: { backgroundColor: colors.primary, borderColor: colors.primary, gap: 4 },
   balanceLabel: { color: colors.primaryText, fontSize: 15, fontWeight: "600" },
   balanceValue: { color: colors.primaryText, fontSize: 30, fontWeight: "800", marginVertical: 2 },
@@ -120,5 +109,16 @@ const styles = StyleSheet.create({
   flowLabel: { fontSize: 14, fontWeight: "600", color: colors.foreground },
   flowValue: { fontSize: 18, fontWeight: "700", color: colors.foreground },
   flowHint: { fontSize: 13, color: colors.muted },
+  section: { fontSize: 18, fontWeight: "700", color: colors.foreground },
+  bill: { gap: 8 },
+  billTop: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  billCard: { fontSize: 16, fontWeight: "700", color: colors.foreground },
+  billTotal: { fontSize: 20, fontWeight: "800", color: colors.foreground },
+  estimate: { fontSize: 12, color: colors.muted, fontStyle: "italic" },
+  toggle: {
+    minHeight: TOUCH, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.secondary,
+    alignItems: "center", justifyContent: "center",
+  },
+  toggleText: { fontSize: 15, fontWeight: "600", color: colors.primary },
   sync: { fontSize: 13, color: colors.muted, textAlign: "center" },
 });
