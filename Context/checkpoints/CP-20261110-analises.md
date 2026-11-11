@@ -4,7 +4,8 @@ type: "checkpoint"
 title: "Aba Análises, classificação de lançamentos e correções de Gastos e da fatura aberta"
 branch: "global"
 tags: ["escopo", "seguranca"]
-status: "active"
+status: "superseded"
+superseded_by: "CTX-CP-20261110-planejamento"
 created_at: "2026-11-10"
 updated_at: "2026-11-10"
 supersedes: ["CTX-CP-20261110-webhooks-endereco-real"]
