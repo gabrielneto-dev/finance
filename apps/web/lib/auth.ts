@@ -3,6 +3,7 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { origin } from "./config.mjs";
 import { atomic, database } from "./db.mjs";
+import { AUTH_UNAVAILABLE, sessionCookie, supabaseConfig } from "./session-cookies";
 
 const localCookie = "finance_local_session";
 const localOwner = "local-owner";
@@ -57,19 +58,16 @@ export async function signOutLocally() {
 }
 
 export async function authClient() {
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return null;
+  const config = supabaseConfig();
+  if (!config) return null;
   const jar = await cookies();
-  return createServerClient(url, key, {
+  return createServerClient(config.url, config.key, {
     cookies: {
       getAll: () => jar.getAll(),
       setAll: (values) => {
         try {
-          for (const { name, value, options } of values) {
-            jar.set(name, value, { ...options, httpOnly: true, secure: process.env.APP_ORIGIN?.startsWith("https://") });
-          }
-        } catch { /* Route handlers can refresh cookies when the page cannot. */ }
+          for (const { name, value, options } of values) jar.set(name, value, sessionCookie(options));
+        } catch { /* Páginas não gravam cookies; o proxy.ts renova a sessão antes delas (SPEC-0005, REQ-001). */ }
       },
     },
   });
@@ -90,6 +88,8 @@ export async function owner() {
       .get(sessionId(token, local.configured), Date.now());
     return session ? localOwner : null;
   }
+  // O proxy.ts já tentou renovar a sessão e o Supabase não respondeu: nega sem tentar de novo.
+  if ((await headers()).get(AUTH_UNAVAILABLE)) return null;
   const client = await authClient();
   if (!client) return null;
   const { data: { user } } = await client.auth.getUser();

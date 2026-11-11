@@ -9,10 +9,12 @@
   "scripts": {
     "dev": "node --import ./scripts/load-env.mjs node_modules/next/dist/bin/next dev",
     "build": "next build --webpack",
+    "typecheck": "tsc --noEmit",
     "start": "node --import ./scripts/load-env.mjs node_modules/next/dist/bin/next start",
     "worker": "node --env-file-if-exists=.env --env-file-if-exists=../../.env scripts/worker.mjs",
     "webhooks": "node --env-file-if-exists=.env --env-file-if-exists=../../.env scripts/register-webhooks.mjs",
-    "test": "node --test --test-isolation=none"
+    "test": "node --test --test-isolation=none",
+    "migrate-owner": "node --env-file-if-exists=.env --env-file-if-exists=../../.env scripts/migrate-owner.mjs"
   },
   "dependencies": {
     "@radix-ui/react-popover": "^1.3.1",
