@@ -4,10 +4,97 @@
     {
       "name": "finance-web-start",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "apps/web", "run", "start", "--", "--hostname", "127.0.0.1", "--port", "3001"],
+      "runtimeArgs": [
+        "--prefix",
+        "apps/web",
+        "run",
+        "start",
+        "--",
+        "--hostname",
+        "127.0.0.1",
+        "--port",
+        "3001"
+      ],
       "port": 3001,
       "autoPort": false,
       "url": "http://127.0.0.1:3001"
+    },
+    {
+      "name": "finance-dev-auth",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tests/dev/mock-supabase.mjs"
+      ],
+      "port": 54321,
+      "autoPort": false,
+      "url": "http://127.0.0.1:54321"
+    },
+    {
+      "name": "finance-dev-auth-curto",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "tests/dev/mock-supabase.mjs"
+      ],
+      "port": 54321,
+      "autoPort": false,
+      "url": "http://127.0.0.1:54321",
+      "env": {
+        "MOCK_TOKEN_SECONDS": "150"
+      }
+    },
+    {
+      "name": "finance-api-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/web",
+        "run",
+        "start",
+        "--",
+        "--hostname",
+        "127.0.0.1",
+        "--port",
+        "3002"
+      ],
+      "env": {
+        "FINANCE_LOCAL_KEY_HASH": "",
+        "APP_ORIGIN": "http://127.0.0.1:3002",
+        "SUPABASE_URL": "http://127.0.0.1:54321",
+        "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_sintetica",
+        "FINANCE_OWNER_EMAIL": "dono@example.com",
+        "FINANCE_DB_PATH": "./data/dev-synthetic.sqlite",
+        "FINANCE_DEV_ORIGINS": "http://localhost:8081",
+        "PLUGGY_CLIENT_ID": "",
+        "PLUGGY_CLIENT_SECRET": "",
+        "PLUGGY_EXISTING_ITEM_ID": ""
+      },
+      "port": 3002,
+      "autoPort": false,
+      "url": "http://127.0.0.1:3002"
+    },
+    {
+      "name": "finance-mobile-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "--prefix",
+        "apps/mobile",
+        "expo",
+        "start",
+        "--web",
+        "--port",
+        "8081"
+      ],
+      "cwd": "apps/mobile",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://127.0.0.1:3002",
+        "EXPO_PUBLIC_SUPABASE_URL": "http://127.0.0.1:54321",
+        "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "sb_publishable_sintetica",
+        "BROWSER": "none",
+        "CI": "1"
+      },
+      "port": 8081,
+      "autoPort": false,
+      "url": "http://localhost:8081"
     }
   ]
 }
