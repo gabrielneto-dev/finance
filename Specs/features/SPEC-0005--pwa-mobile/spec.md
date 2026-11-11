@@ -38,7 +38,8 @@ Quando aprovada, esta spec substitui a parte de paridade web/Android da SPEC-000
 
 - Só Android e só o dono. iOS, loja, app nativo e uso offline com dados ficam fora.
 - Produção no servidor da casa do usuário, atrás do Cloudflare Tunnel em `finance.vetracompany.com.br` (resposta do usuário em 2026-11-11).
-- Premissas (HIPÓTESE): o servidor tem Docker e `cloudflared`, homologação no mesmo host com sandbox e sem webhook, e push sem valor na tela bloqueada.
+- O servidor de casa tem Ubuntu Server, Docker e `cloudflared`, e não é a máquina com o banco atual (respostas do usuário em 2026-11-11).
+- Premissas (HIPÓTESE): homologação no mesmo host com sandbox e sem webhook, e push sem valor na tela bloqueada.
 - Dependência nova prevista: `web-push`, só no REQ-005. A justificativa está no plano, item 5.
 - Plano B: Expo, se o push ou o retorno do OAuth falharem na prática (plano, item 13).
 - Perguntas abertas: no [item 14 do plano](../../../docs/mobile-plan.md#14-perguntas-abertas).

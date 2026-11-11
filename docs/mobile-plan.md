@@ -148,7 +148,7 @@ FCM (serviço de push do Chrome) ◀──Web Push (VAPID, RFC 8291)── worke
 | --- | --- | --- | --- | --- |
 | Desenvolvimento | `127.0.0.1:3001` na sua máquina | Chave local | A do `.env` local | SQLite local. Testes automáticos sempre com dados sintéticos |
 | Homologação (HIPÓTESE, confirmar) | Mesmo host da produção, outro projeto Compose, outro volume e o subdomínio `homolog.` no túnel | Segundo projeto Supabase | `PLUGGY_SANDBOX=1`, **sem webhook**, só pela consulta periódica, para não receber os eventos da produção | Sintéticos (Pluggy Bank Sandbox) |
-| Produção | `finance.vetracompany.com.br`, no **servidor da sua casa** (FATO: sua resposta de 2026-11-11), atrás do Cloudflare Tunnel | Supabase, só o seu e-mail | Real, MeuPluggy | Reais |
+| Produção | `finance.vetracompany.com.br`, no **servidor da sua casa**, com Ubuntu Server, Docker e `cloudflared` (FATO: suas respostas de 2026-11-11), atrás do Cloudflare Tunnel | Supabase, só o seu e-mail | Real, MeuPluggy | Reais |
 
 Notas:
 - O push dá para testar no Chrome de desktop em `127.0.0.1`, que conta como contexto seguro. A documentação do Next também mostra `next dev --experimental-https` (FATO).
@@ -323,7 +323,7 @@ O plano B é o **Expo**, com o SDK oficial `react-native-pluggy-connect` 1.6.0 e
 
 Nenhuma bloqueia a aprovação do plano. Todas precisam de resposta antes do marco indicado.
 
-1. ~~Host da produção~~: respondido em 2026-11-11, é o servidor de casa. Faltam os detalhes dele: sistema e arquitetura, se já tem Docker e `cloudflared`, e se é a mesma máquina Linux que hoje guarda o SQLite e o `.env` atuais.
+1. ~~Host da produção~~: respondido em 2026-11-11. É o servidor de casa, com Ubuntu Server, Docker e `cloudflared`, e não é a máquina que guarda o banco atual. O roteiro copia os dados pela rede de casa.
 2. **Migração do dono** (Marco 0): opção A (script) ou B (reconectar e perder o Planejamento)?
 3. **Homologação** (Marco 0 ou 4): vale manter um segundo ambiente, ou testar o OAuth direto na produção?
 4. **Celular de teste** (Marco 1): qual modelo e qual versão do Android?
