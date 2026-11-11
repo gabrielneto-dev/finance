@@ -1,6 +1,7 @@
 import { dateText, dayNumber } from "./card-cycle.mjs";
 import { charged } from "./charged.mjs";
 import { dueGap, openCycleMonth } from "./installments.mjs";
+import { neutralKind } from "./analytics/categories.mjs";
 
 const STALE_PENDING_DAYS = 31;
 const sameCard = (card) => (row) => row.itemId === card.itemId && row.accountId === card.id;
@@ -25,7 +26,10 @@ export function openBill({ card, bills, entries, schedule, cycle, reference }) {
   const previousClosing = lastClosing === null ? null : cardBills.map((bill) => bill.closes)
     .filter((closes) => typeof closes === "string" && closes < lastClosing).sort().at(-1) ??
     dateText(dayNumber(lastClosing) - STALE_PENDING_DAYS);
+  // Pagamento da fatura não é compra nem estorno. No cartão, ele chega pelo método, pela categoria de
+  // pagamento ou como transferência entre contas próprias (SPEC-0003, REQ-003).
   const purchases = entries.filter(sameCard(card)).filter((row) => !row.billId && row.method !== "Fatura" &&
+    neutralKind(row.category) === null &&
     (row.installments ?? 1) <= 1 && (lastClosing === null ? row.status === "PENDING"
       : row.date > lastClosing || (row.status === "PENDING" && row.date > previousClosing)));
   const installments = schedule.filter(sameCard(card)).filter((row) => row.month === month);

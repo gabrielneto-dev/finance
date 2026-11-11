@@ -4,6 +4,7 @@ import { atomic, bind, bindExisting, CONNECTION_LABEL_MAX, connection, database,
 import { existingItemId, origin, sandbox, uuid } from "@/lib/config.mjs";
 import { pluggy } from "@/lib/pluggy.mjs";
 import { watchConnection } from "@/lib/poll.mjs";
+import { parseChoice, setEntryChoice, setRuleChoice } from "@/lib/analytics/choices.mjs";
 
 const response = (body: object, status = 200) =>
   Response.json(body, { status, headers: { "Cache-Control": "private, no-store" } });
@@ -21,6 +22,13 @@ export async function POST(request: Request) {
     db.prepare(`UPDATE notices SET read_at=? WHERE read_at IS NULL AND item_id IN
       (SELECT id FROM connections WHERE owner=? AND active=1)`).run(new Date().toISOString(), user);
     return response({ ok: true });
+  }
+  if (action === "categorize" || action === "categorize-rule") {
+    // Categoria escolhida pelo proprietário para um lançamento ou para o estabelecimento (SPEC-0003, REQ-004).
+    const choice = parseChoice(body);
+    if (!choice) return response({ error: "Categoria inválida." }, 400);
+    const saved = action === "categorize" ? setEntryChoice(db, user, choice) : setRuleChoice(db, user, choice) !== null;
+    return saved ? response({ ok: true }) : response({ error: "Lançamento indisponível." }, 404);
   }
   if (action === "import-existing") {
     const configured = existingItemId();

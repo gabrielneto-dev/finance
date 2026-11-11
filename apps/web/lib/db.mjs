@@ -5,6 +5,8 @@ import { DatabaseSync } from "node:sqlite";
 import { installmentSchedule } from "./installments.mjs";
 import { cardCycle } from "./card-cycle.mjs";
 import { openBill } from "./open-bill.mjs";
+import { loadChoices } from "./analytics/choices.mjs";
+import { choiceFor } from "./analytics/classify.mjs";
 
 export function openDatabase(filename) {
   if (filename !== ":memory:") mkdirSync(dirname(resolve(filename)), { recursive: true, mode: 0o700 });
@@ -46,6 +48,15 @@ export function openDatabase(filename) {
       done INTEGER NOT NULL DEFAULT 0, received_at TEXT
     );
     CREATE INDEX IF NOT EXISTS jobs_ready ON jobs(done,due,until);
+    -- Categoria escolhida pelo proprietário (SPEC-0003, REQ-004). A sincronização não toca nestas tabelas.
+    CREATE TABLE IF NOT EXISTS category_overrides (
+      owner TEXT NOT NULL, item_id TEXT NOT NULL, account_id TEXT NOT NULL, entry_id TEXT NOT NULL,
+      category TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(owner,item_id,account_id,entry_id)
+    );
+    CREATE TABLE IF NOT EXISTS category_rules (
+      owner TEXT NOT NULL, merchant_key TEXT NOT NULL, category TEXT NOT NULL, updated_at TEXT NOT NULL,
+      PRIMARY KEY(owner,merchant_key)
+    );
   `);
   const hasReceivedAt = () => db.prepare("PRAGMA table_info(jobs)").all().some(({ name }) => name === "received_at");
   if (!hasReceivedAt()) atomic(db, () => {
@@ -211,6 +222,9 @@ export function dashboard(db, owner, from, to, scheduleFrom = "", billId = "", c
     .map((row) => ({ ...JSON.parse(row.data), itemId: row.item_id }));
   const bills = select("bills");
   const accounts = select("accounts");
+  // Escolha de categoria do proprietário em cada lançamento (SPEC-0003, REQ-004).
+  const choices = loadChoices(db, owner);
+  const withChoice = (row) => ({ ...row, choice: choiceFor(row, choices) });
   const cycleReference = cycleDate || openDate;
   const cardCycles = cycleReference ? accounts.filter((card) => card.type === "CREDIT").map((card) => {
     const cardBills = bills.filter((bill) => bill.itemId === card.itemId && bill.accountId === card.id);
@@ -250,7 +264,7 @@ export function dashboard(db, owner, from, to, scheduleFrom = "", billId = "", c
     JOIN bills b ON b.item_id=t.item_id AND b.account_id=t.account_id AND b.id=json_extract(t.data,'$.billId')
     ${owned} AND b.id=?
     ORDER BY t.date DESC,json_extract(t.data,'$.time') DESC,t.id
-  `).all(owner, billId).map((row) => ({ ...JSON.parse(row.data), itemId: row.item_id })) : [];
+  `).all(owner, billId).map((row) => withChoice({ ...JSON.parse(row.data), itemId: row.item_id })) : [];
   return {
     connections: db.prepare(`SELECT c.id,c.name,c.label,c.status,c.synced_at AS syncedAt,c.active,c.details,
       j.kind AS webhookEvent,j.received_at AS webhookReceivedAt,
@@ -269,7 +283,7 @@ export function dashboard(db, owner, from, to, scheduleFrom = "", billId = "", c
     ...(billId ? { billPurchases: { id: billId, entries: billPurchases } } : {}),
     entries: db.prepare(`SELECT t.data,t.item_id FROM entries t ${owned} AND t.date BETWEEN ? AND ?
       ORDER BY t.date DESC,json_extract(t.data,'$.time') DESC,t.id`)
-      .all(owner, from, to).map((row) => ({ ...JSON.parse(row.data), itemId: row.item_id })),
+      .all(owner, from, to).map((row) => withChoice({ ...JSON.parse(row.data), itemId: row.item_id })),
     notifications: db.prepare(`SELECT t.id,t.data,t.created_at,t.read_at FROM notices t ${owned} ORDER BY t.id DESC LIMIT 50`)
       .all(owner).map((row) => ({ ...JSON.parse(row.data), id: row.id, date: row.created_at, read: row.read_at !== null })),
     unread: db.prepare(`SELECT COUNT(*) AS total FROM notices t ${owned} AND t.read_at IS NULL`).get(owner).total,

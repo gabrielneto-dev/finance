@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Activity, ArrowDownLeft, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, CreditCard, ExternalLink, Eye, EyeOff, Filter, Landmark, LayoutGrid, Link2, List, LogOut, Pencil, Plus, ReceiptText, RefreshCw, Wallet, X } from "lucide-react";
+import { Activity, ArrowDownLeft, ArrowDownRight, ArrowRight, ArrowUpRight, Bell, CalendarDays, Check, ChevronDown, CreditCard, ExternalLink, Eye, EyeOff, Filter, Landmark, Link2, List, Pencil, Plus, ReceiptText, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -16,26 +16,24 @@ import { InstallmentList } from "@/components/installment-list";
 import { ConnectionDetails } from "@/components/connection-details";
 import { HIDDEN_VALUES_KEY, HiddenValues } from "@/components/hidden-values";
 import { EmptyState, FinancialOverview, PanelHeading } from "@/components/dashboard-panels";
-import { logout } from "@/app/login/actions";
+import { CategoryEditing, CategoryPicker, type CategoryScope } from "@/components/category-picker";
+import { AppSidebar, SECTIONS, type DashboardView } from "@/components/app-sidebar";
 import { blockedBalances, blockedDeposits } from "@/lib/balances";
 import { charged } from "@/lib/charged.mjs";
 import { displayDate, displayDateWithYear, maskValue, money, moneyTotals, monthRange, timestamp, today } from "@/lib/format";
 import { filterLedger, UNKNOWN_METHOD } from "@/lib/ledger-filter";
+import { analyzer, spendingEntries, spendingTotals, type Analyzed } from "@/lib/analytics/spending";
+import { spendingValue } from "@/lib/analytics/classify.mjs";
 import type { Account, Connection, DashboardData, Entry, Notice } from "@/lib/types";
 
 const PluggyConnect = dynamic(() => import("react-pluggy-connect").then((mod) => mod.PluggyConnect), { ssr: false });
 
-const sections = [
-  ["overview", "Visão geral", LayoutGrid], ["ledger", "Extrato", List], ["spending", "Gastos", Activity],
-  ["cards", "Cartões", CreditCard], ["bills", "Faturas", ReceiptText], ["connections", "Conexões", Link2],
-] as const;
-type View = typeof sections[number][0];
+type View = DashboardView;
 const empty: DashboardData = { accounts: [], entries: [], bills: [], connections: [], notifications: [], unread: 0 };
 const accountKey = (row: { itemId: string; accountId?: string; id?: string }) => row.itemId + "/" + (row.accountId ?? row.id);
 const monthName = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" });
 const monthLabel = (month: string) => monthName.format(new Date(month + "-01T12:00:00Z"));
 const connectionName = (row: Connection) => row.label || row.name;
-const expense = (row: Entry) => row.direction === "DEBIT" && row.method !== "Fatura";
 const stateLabels: Record<string, string> = {
   CONECTADA: "Conectada", IMPORTANDO: "Importando", RECONECTAR: "Reconectar",
   "ATENÇÃO": "Atenção", PARCIAL: "Importação parcial", REMOVENDO: "Removendo",
@@ -104,7 +102,7 @@ function Ledger({ rows, accounts, blocked }: { rows: Entry[]; accounts: Account[
         </span>
         <div><strong>{row.description}</strong><small>{accountNames.get(accountKey(row))}{row.method && " · " + row.method}
           {row.installment && row.installments ? " · " + row.installment + "/" + row.installments : ""}
-          {row.purchaseDate && " · compra em " + displayDate(row.purchaseDate)}</small></div>
+          {row.purchaseDate && " · compra em " + displayDate(row.purchaseDate)}</small><CategoryPicker row={row} /></div>
       </div></td>
       <td className="entry-date">{displayDate(row.date)} <small>{row.time ?? "Sem horário"}</small></td>
       <td><EntryStatus row={row} blocked={!!blocked?.has(accountKey(row) + "/" + row.id)} /></td>
@@ -114,19 +112,19 @@ function Ledger({ rows, accounts, blocked }: { rows: Entry[]; accounts: Account[
   </table></ScrollArea>;
 }
 
-function SpendList({ rows, includePending = false }: { rows: Entry[]; includePending?: boolean }) {
+// Gastos por categoria: despesas menos estornos, pela classificação das Análises (SPEC-0003, REQ-003).
+function SpendList({ rows, includePending = false }: { rows: Analyzed[]; includePending?: boolean }) {
   const groups = new Map<string, { label: string; currency: string; amount: number; pending: number }>();
-  for (const row of rows) {
-    if (!expense(row) || (!includePending && row.status !== "POSTED")) continue;
-    const label = row.category || "Sem categoria";
-    const { amount, currency } = charged(row);
-    const key = currency + "/" + label;
-    const group = groups.get(key) ?? { label, currency, amount: 0, pending: 0 };
-    group.amount += amount;
-    if (row.status === "PENDING") group.pending += amount;
+  for (const { row, info } of rows) {
+    if (!includePending && row.status !== "POSTED") continue;
+    const key = info.currency + "/" + info.label;
+    const group = groups.get(key) ?? { label: info.label, currency: info.currency, amount: 0, pending: 0 };
+    group.amount += spendingValue(info);
+    if (row.status === "PENDING") group.pending += spendingValue(info);
     groups.set(key, group);
   }
-  const sorted = Array.from(groups.values()).sort((a, b) => a.currency.localeCompare(b.currency) || b.amount - a.amount);
+  const sorted = Array.from(groups.values()).filter((group) => group.amount > 0)
+    .sort((a, b) => a.currency.localeCompare(b.currency) || b.amount - a.amount);
   if (!sorted.length) return <EmptyState icon={Activity}>
     {includePending ? "Nenhum gasto para esta seleção." : "Sem gastos efetivados neste período."}
   </EmptyState>;
@@ -253,7 +251,9 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
   const selectedRows = data.entries.filter((row) => !selected || accountKey(row) === selected);
   const ledgerRows = useMemo(() => filterLedger(data.entries, { account: selected, method, hours }),
     [data.entries, selected, method, hours]);
-  const spendingRows = ledgerRows.filter(expense);
+  const analyze = useMemo(() => analyzer(data.accounts), [data.accounts]);
+  const spending = useMemo(() => spendingEntries(ledgerRows, analyze), [ledgerRows, analyze]);
+  const spendingRows = spending.map(({ row }) => row);
   const bankKeys = new Set(data.accounts.filter((row) => row.type === "BANK").map(accountKey));
   const balanceAccounts = chosen ? [chosen] : data.accounts.filter((row) => row.type === "BANK");
   const accountBalances = balanceAccounts
@@ -291,6 +291,18 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
     } catch (err) { setMessage(err instanceof Error ? err.message : "A ação falhou."); }
     finally { setBusy(false); }
   }
+
+  // Troca de categoria pelo Extrato, Gastos e Faturas (SPEC-0003, REQ-004).
+  const categoryEditing = useMemo(() => ({
+    analyze,
+    save: async (row: Entry, category: string | null, scope: CategoryScope) => {
+      await operation(scope === "entry" ? "categorize" : "categorize-rule", row.itemId,
+        { accountId: row.accountId, entryId: row.id, category: category ?? "" });
+      await refresh();
+    },
+  // operation só depende de fetch; refresh já é estável.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [analyze, refresh]);
 
   async function widgetSuccess(itemId: string) {
     setWidget(null);
@@ -337,15 +349,8 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
     </dl>
   </section>;
 
-  return <HiddenValues.Provider value={valuesHidden}><div className="shell">
-    <aside className="sidebar">
-      <div className="brand"><span className="brand-icon"><Wallet size={20} /></span><div><strong>Finance</strong><span>Meu espaço financeiro</span></div></div>
-      <p className="nav-label">PAINEL</p>
-      <ScrollArea asChild overflow="vertical"><nav aria-label="Seções do Finance">{sections.map(([id, label, Icon]) =>
-        <button key={id} type="button" aria-current={view === id ? "page" : undefined} onClick={() => navigate(id)}><Icon size={17} />{label}</button>
-      )}</nav></ScrollArea>
-      <form className="side-footer" action={logout}><Button variant="ghost"><LogOut size={16} /> Sair</Button></form>
-    </aside>
+  return <HiddenValues.Provider value={valuesHidden}><CategoryEditing.Provider value={categoryEditing}><div className="shell">
+    <AppSidebar current={view} onNavigate={navigate} />
     <div className="workspace">
       <header className="topbar"><div className="topbar-label">
         <span>Painel financeiro</span>
@@ -374,7 +379,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
       <main className="content">
         <ScrollArea className="page-controls" overflow="layout">
           <div className="page-heading">
-            <div><span className="eyebrow">FINANÇAS PESSOAIS</span><h1>{sections.find(([id]) => id === view)?.[1]}</h1>
+            <div><span className="eyebrow">FINANÇAS PESSOAIS</span><h1>{SECTIONS.find(([id]) => id === view)?.[1]}</h1>
               <p>{{ overview: "Saldos e movimentações em um só lugar.", ledger: "Consulte e filtre os lançamentos das suas contas.", spending: "Veja onde seu dinheiro foi no período.", cards: "Acompanhe os cartões vinculados às suas instituições.", bills: "Confira vencimentos, valores e compras por fatura.", connections: "Gerencie suas instituições e acompanhe a sincronização." }[view]}</p></div>
             {view === "connections" && <Button onClick={() => run("token")} disabled={busy}><Plus /> Conectar instituição</Button>}
             {canSwitchInstallments && <div className="flex flex-wrap gap-2" role="group" aria-label="Tipo de consulta">
@@ -421,7 +426,7 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
           <ScrollArea className="panel-grid" overflow="layout">
             <Card className="panel-card"><CardHeader className="section-header"><PanelHeading icon={List} title="Movimentações recentes" /><Button variant="outline" onClick={() => navigate("ledger")}>Ver extrato <ArrowRight /></Button></CardHeader>
               <CardContent className="table-panel"><Ledger rows={overviewRows.slice(0, 7)} accounts={data.accounts} blocked={blockedEntries} /></CardContent></Card>
-            <Card className="panel-card"><CardHeader><PanelHeading icon={Activity} title="Gastos por categoria" detail="Saídas efetivadas no período" /></CardHeader><ScrollArea asChild><CardContent className="panel-scroll" role="region" aria-label="Resumo de gastos por categoria" tabIndex={0}><SpendList rows={overviewRows} /></CardContent></ScrollArea></Card>
+            <Card className="panel-card"><CardHeader><PanelHeading icon={Activity} title="Gastos por categoria" detail="Saídas efetivadas no período" /></CardHeader><ScrollArea asChild><CardContent className="panel-scroll" role="region" aria-label="Resumo de gastos por categoria" tabIndex={0}><SpendList rows={spendingEntries(overviewRows, analyze)} /></CardContent></ScrollArea></Card>
           </ScrollArea>
         </ScrollArea>}
         {view === "ledger" && !showInstallmentPanel && <Card className="panel-card">
@@ -436,20 +441,20 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
             </CardHeader>
             <ScrollArea asChild><CardContent className="panel-scroll" role="region" aria-label="Resumo de gastos por categoria" tabIndex={0}>
               {spendingRows.length > 0 && <>
-                <strong className="spending-total">{moneyTotals(spendingRows)}</strong>
+                <strong className="spending-total">{spendingTotals(spending)}</strong>
                 <dl className="mb-4 grid gap-1 text-sm">
                   <div className="flex flex-wrap justify-between gap-x-2">
                     <dt className="text-muted-foreground">Efetivados</dt>
-                    <dd>{moneyTotals(spendingRows.filter((row) => row.status === "POSTED"))}</dd>
+                    <dd>{spendingTotals(spending.filter(({ row }) => row.status === "POSTED"))}</dd>
                   </div>
                   <div className="flex flex-wrap justify-between gap-x-2">
                     <dt className="text-muted-foreground">Pendentes</dt>
-                    <dd>{moneyTotals(spendingRows.filter((row) => row.status === "PENDING"))}</dd>
+                    <dd>{spendingTotals(spending.filter(({ row }) => row.status === "PENDING"))}</dd>
                   </div>
                 </dl>
               </>}
               {spendingClosings}
-              <SpendList rows={spendingRows} includePending />
+              <SpendList rows={spending} includePending />
             </CardContent></ScrollArea>
           </Card>
           <Card className="panel-card">
@@ -591,5 +596,5 @@ export function Dashboard({ importExisting, initial, initialInstallments }: {
       onSuccess={({ item }) => widgetSuccess(item.id)} onClose={() => setWidget(null)}
       onError={() => { setWidget(null); setMessage("A conexão não foi concluída. Tente novamente."); }}
       onLoadError={() => { setWidget(null); setMessage("Não foi possível abrir o Pluggy Connect."); }} />}
-  </div></HiddenValues.Provider>;
+  </div></CategoryEditing.Provider></HiddenValues.Provider>;
 }

@@ -46,9 +46,9 @@ button:disabled { cursor: default; }
 .brand-icon { width: 38px; height: 38px; border-radius: 10px; display: inline-grid; place-items: center; color: white; background: var(--primary); flex: none; }
 .nav-label { font-size: 10px; letter-spacing: .14em; font-weight: 700; color: #a7b7ab; margin: 39px 9px 9px; }
 .sidebar nav { display: grid; gap: 5px; min-height: 0; }
-.sidebar nav button { text-align: left; padding: 10px 11px; display: flex; align-items: center; gap: 10px; border-radius: 7px; color: #d9e2da; font-size: 14px; min-height: 43px; }
-.sidebar nav button:hover { background: #25302a; }
-.sidebar nav button[aria-current=page] { color: #ecfff2; background: #254334; font-weight: 700; }
+.sidebar nav :is(button, a) { text-align: left; padding: 10px 11px; display: flex; align-items: center; gap: 10px; border-radius: 7px; color: #d9e2da; font-size: 14px; min-height: 43px; }
+.sidebar nav :is(button, a):hover { background: #25302a; }
+.sidebar nav :is(button, a)[aria-current=page] { color: #ecfff2; background: #254334; font-weight: 700; }
 .side-footer { flex-shrink: 0; margin-top: auto; padding: 16px 6px 0; color: #d9e2da; }
 .side-footer button:hover { color: var(--foreground); }
 .workspace { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -248,8 +248,8 @@ tbody tr:last-child td { border-bottom: 0; }
   .shell { grid-template: auto minmax(0,1fr) / minmax(0,1fr); }
   .sidebar { padding: 10px 12px; max-height: min(33dvh, 176px); }
   .sidebar nav { display: flex; flex-wrap: wrap; margin-top: 8px; }
-  .sidebar nav button { padding: 8px; font-size: 12px; gap: 5px; }
-  .sidebar nav button svg { width: 14px; }
+  .sidebar nav :is(button, a) { padding: 8px; font-size: 12px; gap: 5px; }
+  .sidebar nav :is(button, a) svg { width: 14px; }
   .nav-label { display: none; }
   .side-footer { padding: 8px 6px 0; }
   .topbar { padding: 6px 13px; min-height: 55px; }
@@ -263,3 +263,21 @@ tbody tr:last-child td { border-bottom: 0; }
   .financial-totals dl { padding: 12px; }
   .table-wrap .entry-icon { display: none; }
 }
+
+/* Categoria do lançamento (SPEC-0003, REQ-004) */
+.category-chip { display: inline-flex; align-items: center; gap: 3px; margin-top: 4px; padding: 1px 7px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--muted); font-size: 11px; line-height: 18px; }
+.category-chip:hover, .category-chip:focus-visible { border-color: var(--primary); color: var(--foreground); outline: none; }
+.category-chip.chosen { border-color: var(--green-light); background: var(--green-light); color: var(--green-deep); }
+.category-menu { width: min(300px, calc(100vw - 32px)); padding: 8px; font-size: 13px; }
+.category-scope { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 2px; border-radius: 7px; background: var(--secondary); }
+.category-scope button { padding: 6px 8px; border-radius: 5px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.category-scope button[aria-checked=true] { background: var(--card); color: var(--foreground); font-weight: 650; box-shadow: 0 1px 2px rgb(0 0 0 / 8%); }
+.category-list { max-height: min(340px, 50vh); overflow-y: auto; margin-top: 6px; overscroll-behavior: contain; }
+.category-group { display: grid; padding: 4px 0; }
+.category-group > span { padding: 6px 8px 3px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.category-option { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-radius: 5px; text-align: left; }
+.category-option:hover, .category-option:focus-visible { background: var(--secondary); outline: none; }
+.category-option[aria-checked=true] { color: var(--primary); font-weight: 650; }
+.category-reset { display: flex; align-items: center; gap: 6px; width: 100%; margin-top: 6px; padding: 8px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+.category-reset:hover { color: var(--foreground); }
+.category-error { margin: 6px 8px 0; color: var(--destructive); font-size: 12px; }

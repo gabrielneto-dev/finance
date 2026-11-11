@@ -84,3 +84,15 @@ test("usa o valor cobrado em reais nas compras em outra moeda", () => {
   assert.deepEqual(bill.purchases, [{ amount: 5630, currency: "BRL" }, { amount: 40, currency: "USD" }]);
   assert.deepEqual(bill.total, [{ amount: 5630, currency: "BRL" }, { amount: 40, currency: "USD" }]);
 });
+
+test("deixa fora o pagamento da fatura lançado no cartão como pagamento ou transferência própria", () => {
+  const entries = [
+    entry(100, "2026-11-05"),
+    entry(900, "2026-11-06", { direction: "CREDIT", status: "POSTED", category: "Credit card payment" }),
+    entry(500, "2026-11-08", { direction: "CREDIT", category: "Transfer - Internal" }), // pagamento como transferência própria
+    entry(20, "2026-11-07", { direction: "CREDIT", category: "Shopping" }), // estorno continua abatendo
+  ];
+  const bill = openBill({ card, bills, entries, schedule: [], cycle, reference: "2026-11-10" });
+  assert.deepEqual(bill.purchases, [{ amount: 80, currency: "BRL" }]);
+  assert.equal(bill.entries.some((row) => row.direction === "CREDIT" && row.category !== "Shopping"), false);
+});
