@@ -268,6 +268,7 @@ Em dias de trabalho (INFERÊNCIA):
 | Token ou chave vazando no repositório público (`google-services.json`, conta de serviço, keystore) | Média / alto | Tudo fora do Git, com `.gitignore` para esses arquivos desde o Marco 1, e busca por segredos antes de cada commit |
 | Sessão do app perdida ou exposta | Baixa / médio | Sessão cifrada com chave no Keystore. Sair apaga tudo. 401 volta ao login |
 | Push atrasado pela economia de bateria | Média / alto | FCM de prioridade alta, observação de 7 dias e orientação para tirar o app da otimização |
+| Mudança na API do FCM (FATO, 2026-11-11: o campo `token` está marcado como obsoleto em favor de `fid`, e a documentação pede a migração para `AndroidConfigV2`) | Média / médio | O envio fica todo em `lib/push.mjs`, coberto por testes. Revisar quando o Google marcar uma data de desligamento |
 | OAuth da Pluggy não voltar ao app | Média / médio | SDK oficial com deep link. Teste no sandbox antes da conta real |
 | Limite de builds gratuitos do EAS | Baixa / baixo | Desenvolver pela prévia web e pelo *development build* com o Metro. Build novo só quando mudar código nativo |
 | Verificação de desenvolvedor em 2027 | Certa / médio | Conta de distribuição limitada, gratuita, registrada antes da data |

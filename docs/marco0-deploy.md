@@ -139,6 +139,14 @@ Para apontar o backup para um disco externo, que é o recomendado, e agendar no 
    bash deploy/deploy.sh --no-pull
    ```
 
+## 7a. Avisos de transferência no app (Marco 2)
+
+1. Crie um projeto em https://console.firebase.google.com e adicione um app Android com o pacote `br.com.vetracompany.finance`.
+2. Baixe o `google-services.json`. Ele **não** vai para o Git. No Expo, cadastre-o como variável de ambiente do tipo arquivo, com o nome `GOOGLE_SERVICES_JSON`, para o build do APK. O `apps/mobile/app.config.js` lê essa variável.
+3. Em **Configurações do projeto → Contas de serviço**, gere uma chave privada. Converta o arquivo para base64 numa linha só (`base64 -w0 arquivo.json`) e cole em `FIREBASE_SERVICE_ACCOUNT` no `.env.production`. Apague o arquivo baixado depois.
+4. Rode `bash deploy/deploy.sh --no-pull` para o worker carregar a credencial.
+5. No app, em **Ajustes → Avisos de transferência**, toque em **Ativar avisos neste aparelho** e depois em **Enviar aviso de teste**.
+
 ## 8. Aceite do Marco 0
 
 | Critério | Como conferir |
