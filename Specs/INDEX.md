@@ -6,6 +6,6 @@
 | SPEC-0002 | [Atualização mais frequente de transações, extrato e cartões](features/SPEC-0002--atualizacao-frequente/spec.md) | Próxima | draft | SPEC-0001 |
 | SPEC-0003 | [Análises financeiras](features/SPEC-0003--analises/spec.md) | Implementada | active | SPEC-0001 |
 | SPEC-0004 | [Planejamento financeiro](features/SPEC-0004--planejamento/spec.md) | Em foco | active | SPEC-0001, SPEC-0003 |
-| SPEC-0005 | [Finance no celular como PWA](features/SPEC-0005--pwa-mobile/spec.md) | Em foco | active | SPEC-0001, SPEC-0002 |
+| SPEC-0005 | [Finance no celular: app Android em React Native](features/SPEC-0005--pwa-mobile/spec.md) | Em foco | active | SPEC-0001, SPEC-0002 |
 
 [Estado operacional](STATE.md) · [Protocolo](README.md)
