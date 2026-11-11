@@ -1,0 +1,13 @@
+{
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_API_URL": "https://finance.vetracompany.com.br" }
+    },
+    "production": {
+      "android": { "buildType": "apk" },
+      "env": { "EXPO_PUBLIC_API_URL": "https://finance.vetracompany.com.br" }
+    }
+  }
+}
