@@ -20,7 +20,8 @@ export function SummarySection({ data, compare, openDetail, go }: SectionProps) 
       <Kpi label="Despesas" value={brl(current.expense)}
         foot={<>{compare && <Delta current={current.expense} previous={previous.expense} lowerIsBetter />}<span>{brl(current.dailyAverage)} por dia</span></>} />
       <Kpi label="Resultado" lead value={brl(current.result)}
-        foot={<>{compare && <Delta current={current.result} previous={previous.result} />}<span>{current.result >= 0 ? "Sobrou no período" : "Faltou no período"}</span></>} />
+        foot={<>{compare && <Delta current={current.result} previous={previous.result} />}<span>{current.result >= 0 ? "Sobrou no período" : "Faltou no período"}
+          {current.business.profit !== 0 && ", com " + brl(current.business.profit) + " do negócio"}</span></>} />
       <Kpi label="Taxa de poupança" value={rate === null ? "—" : percent(rate)} tone={rate !== null && rate < 0 ? "negative" : undefined}
         foot={rate === null ? <span>Sem receita no período</span>
           : compare && previous.savingsRate !== null ? <span>Antes: {percent(previous.savingsRate)}</span> : <span>Do que entrou, quanto ficou</span>} />

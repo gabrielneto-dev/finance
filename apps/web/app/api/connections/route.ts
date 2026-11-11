@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { owner } from "@/lib/auth";
 import { atomic, bind, bindExisting, CONNECTION_LABEL_MAX, connection, database, enqueue, normalizeLabel, renameConnection } from "@/lib/db.mjs";
 import { existingItemId, origin, sandbox, uuid } from "@/lib/config.mjs";
-import { pluggy } from "@/lib/pluggy.mjs";
+import { pluggy, PluggyError } from "@/lib/pluggy.mjs";
 import { watchConnection } from "@/lib/poll.mjs";
 import { parseChoice, setEntryChoice, setRuleChoice } from "@/lib/analytics/choices.mjs";
 
@@ -65,10 +65,20 @@ export async function POST(request: Request) {
         db.prepare("DELETE FROM intents WHERE expires<?").run(Date.now());
         db.prepare("INSERT INTO intents VALUES(?,?,?)").run(intent, user, Date.now() + 2 * 60 * 60_000);
       }
-      const token = await pluggy("/connect_token", "POST", {
+      // Investimentos entram nas conexões novas e na reautorização (SPEC-0004, REQ-009).
+      const products = ["ACCOUNTS", "TRANSACTIONS", "CREDIT_CARDS", "INVESTMENTS", "INVESTMENTS_TRANSACTIONS"];
+      const request = (withProducts: boolean) => pluggy("/connect_token", "POST", {
         ...(itemId ? { itemId } : {}),
-        options: { ...options, ...(intent ? { clientUserId: intent, products: ["ACCOUNTS", "TRANSACTIONS", "CREDIT_CARDS"] } : {}) },
+        options: { ...options, ...(intent ? { clientUserId: intent } : {}), ...(withProducts ? { products } : {}) },
       });
+      let token;
+      try {
+        token = await request(true);
+      } catch (error) {
+        // Se a Pluggy recusar os produtos na atualização, mantém o fluxo que já funcionava.
+        if (!itemId || !(error instanceof PluggyError && error.status === 400)) throw error;
+        token = await request(false);
+      }
       if (typeof token?.accessToken !== "string") throw new Error("Connect Token ausente");
       return response({ accessToken: token.accessToken, sandbox: sandbox() });
     }

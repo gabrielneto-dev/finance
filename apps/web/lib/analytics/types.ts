@@ -6,6 +6,8 @@ export type Totals = {
   income: number; yield: number; expense: number; refunds: number; pending: number; result: number;
   savingsRate: number | null; dailyAverage: number; purchases: number;
   neutral: Record<"pagamento_fatura" | "transferencia_propria" | "investimento" | "emprestimo" | "ignorado", number>;
+  /** Negócio separado das finanças pessoais (SPEC-0004, REQ-001). */
+  business: { revenue: number; costs: number; profit: number; withdrawals: number };
 };
 export type Ranked = { label: string; amount: number };
 export type GroupRow = {
@@ -27,10 +29,10 @@ export type AnalyticsEntry = Entry & { info: Classified; merchant: string };
 export type AnalyticsData = {
   period: { from: string; to: string; previousFrom: string; previousTo: string; days: number; reference: string };
   accounts: { key: string; itemId: string; id: string; name: string; type: "BANK" | "CREDIT"; last4: string | null;
-    currency: string; balance: number | null; limit: number | null; available: number | null }[];
+    currency: string; balance: number | null; limit: number | null; available: number | null; business: boolean }[];
   connections: { id: string; name: string }[];
   totals: { current: Totals; previous: Totals };
-  monthly: { month: string; income: number; expense: number; result: number }[];
+  monthly: { month: string; income: number; expense: number; business: number; result: number }[];
   monthlyByGroup: { month: string; values: Record<string, number> }[];
   pace: {
     month: string; days: { day: number; current: number | null; previous: number; average: number }[];

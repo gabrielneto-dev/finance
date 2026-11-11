@@ -1,6 +1,7 @@
 import { bind, connection, complete, enqueue, notifyTransfers, retry, saveConnectionDetails, writeBatch } from "./db.mjs";
 import { sandbox, uuid } from "./config.mjs";
 import { list, minor, pluggy, PluggyError, transactions } from "./pluggy.mjs";
+import { writeInvestments } from "./planning/store.mjs";
 
 function optionalMoney(value, currency) {
   if (value == null) return null;
@@ -60,6 +61,51 @@ async function fetchBills(card) {
   }
 }
 
+// Investimentos do Item (SPEC-0004, REQ-009). Só consulta quando o produto foi autorizado na conexão.
+const EQUITY_FIIS = new Set(["REAL_ESTATE_FUND", "FII"]);
+export function investmentClass(type, subtype) {
+  if (type === "FIXED_INCOME") return subtype === "TREASURY" ? "tesouro" : "renda_fixa";
+  if (type === "EQUITY") return EQUITY_FIIS.has(subtype) ? "fiis" : "acoes";
+  if (type === "ETF") return "acoes";
+  if (type === "MUTUAL_FUND") return "fundos";
+  if (type === "SECURITY") return "previdencia";
+  return "outros";
+}
+
+export function investmentLiquidity(type, dueDate, today) {
+  if (type === "SECURITY") return "longo";
+  if ((type === "FIXED_INCOME" || type === "COE") && dueDate && dueDate > today) return "vencimento";
+  return "diaria";
+}
+
+/** Investimento da Pluggy no formato local, ou null quando fica de fora (resgatado ou em outra moeda). */
+export function investment(row, today) {
+  if (!uuid.test(String(row?.id)) || row.status === "TOTAL_WITHDRAWAL" || row.currencyCode !== "BRL") return null;
+  const value = row.balance ?? row.amount;
+  if (value == null) return null;
+  const dueDate = optionalDate(row.dueDate);
+  return {
+    externalId: row.id, name: String(row.name || "Investimento").trim().slice(0, 80) || "Investimento",
+    institution: optionalLabel(row.issuer ?? row.institution?.name)?.slice(0, 60) ?? null,
+    class: investmentClass(row.type, row.subtype), liquidity: investmentLiquidity(row.type, dueDate, today),
+    balance: Math.max(0, minor(value, "BRL")), dueDate,
+  };
+}
+
+const localToday = () => new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Sao_Paulo", dateStyle: "short" }).format(new Date());
+
+async function fetchInvestments(item) {
+  if (!Array.isArray(item.products) || !item.products.includes("INVESTMENTS")) return null;
+  const today = localToday();
+  try {
+    return (await list("/investments", { itemId: item.id })).flatMap((row) => investment(row, today) ?? []);
+  } catch (error) {
+    // Sem o produto liberado, mantém o que já existe e segue a sincronização.
+    if (error instanceof PluggyError && [400, 403, 404].includes(error.status)) return null;
+    throw error;
+  }
+}
+
 async function retrieve(itemId) {
   const item = await pluggy("/items/" + itemId);
   if (item?.id !== itemId || item.connector?.isSandbox !== sandbox()) throw new Error("Item fora do ambiente configurado");
@@ -97,8 +143,10 @@ async function fullSync(db, job, item) {
     entries.push(...await transactions(row.id, {}, row.currency));
     bills.push(...await fetchBills(row));
   }
+  const investments = await fetchInvestments(item);
   activeWrite(db, job, () => {
     writeBatch(db, itemId, accounts, entries, bills);
+    if (investments) writeInvestments(db, itemId, investments, localToday());
     saveConnectionDetails(db, item);
     const now = new Date().toISOString();
     db.prepare(`UPDATE connections SET status='CONECTADA',baseline=CASE WHEN synced_at IS NULL THEN ? ELSE baseline END,synced_at=?,

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { categoryById, isChoice, pluggyCategory } from "../lib/analytics/categories.mjs";
-import { choiceFor, classify, entryKey, spendingValue } from "../lib/analytics/classify.mjs";
+import { BUSINESS_KINDS, businessValue, choiceFor, classify, entryKey, INCOME_KINDS, SPENDING_KINDS, spendingValue } from "../lib/analytics/classify.mjs";
 import { merchantKey, merchantLabel } from "../lib/analytics/merchant.mjs";
 
 const entry = (extra = {}) => ({
@@ -122,4 +122,43 @@ test("normaliza a descrição na chave do estabelecimento", () => {
   assert.equal(merchantKey(""), "SEM DESCRICAO");
   assert.equal(merchantLabel("SUPERMERCADO DA ESQUINA"), "Supermercado da Esquina");
   assert.equal(merchantLabel("SEM DESCRICAO"), "Sem descrição");
+});
+
+test("categorias de negócio separam vendas e custos, e o estorno de custo abate (SPEC-0004)", () => {
+  const sale = classify(entry({ direction: "CREDIT", category: "Transfer - PIX" }), { choice: { value: "negocio_vendas", source: "lancamento" } });
+  assert.equal(sale.kind, "negocio_receita");
+  assert.equal(sale.groupLabel, "Negócio");
+  assert.equal(businessValue(sale), 1000);
+  assert.equal(spendingValue(sale), 0);
+  const cost = classify(entry({ category: "Shopping" }), { choice: { value: "negocio_mercadoria", source: "estabelecimento" } });
+  assert.equal(cost.kind, "negocio_custo");
+  assert.equal(cost.label, "Compra de mercadoria");
+  assert.equal(businessValue(cost), 1000);
+  const refund = classify(entry({ direction: "CREDIT" }), { accountType: "CREDIT", choice: { value: "negocio_frete", source: "lancamento" } });
+  assert.equal(refund.kind, "negocio_custo");
+  assert.equal(businessValue(refund), -1000);
+  assert.equal(SPENDING_KINDS.has(cost.kind) || INCOME_KINDS.has(sale.kind), false);
+});
+
+test("conta do negócio vende pelos créditos, gasta pelos débitos e mantém neutros e escolhas", () => {
+  assert.equal(classify(entry({ direction: "CREDIT", category: "Salary" }), { business: true }).kind, "negocio_receita");
+  const debit = classify(entry({ category: "Groceries" }), { business: true });
+  assert.deepEqual([debit.kind, debit.category], ["negocio_custo", "negocio_outros"]);
+  const cardCredit = classify(entry({ direction: "CREDIT", category: "Shopping" }), { business: true, accountType: "CREDIT" });
+  assert.deepEqual([cardCredit.kind, cardCredit.refund], ["negocio_custo", true]);
+  assert.equal(classify(entry({ category: "Credit card payment" }), { business: true }).kind, "pagamento_fatura");
+  const own = classify(entry({ category: "Same person transfer" }), { business: true });
+  assert.deepEqual([own.kind, own.withdrawal], ["transferencia_propria", true]);
+  assert.equal(classify(entry({ category: "Same person transfer" })).withdrawal, undefined);
+  assert.equal(classify(entry(), { business: true, choice: { value: "mercado", source: "lancamento" } }).kind, "despesa");
+});
+
+test("aporte em investimento e retirada do negócio são escolhas neutras com nome próprio", () => {
+  const deposit = classify(entry({ category: "Transfer - PIX" }), { choice: { value: "aporte", source: "lancamento" } });
+  assert.deepEqual([deposit.kind, deposit.label], ["investimento", "Aporte em investimento"]);
+  const withdrawal = classify(entry({ category: "Transfer - PIX" }), { choice: { value: "retirada", source: "lancamento" } });
+  assert.deepEqual([withdrawal.kind, withdrawal.label, withdrawal.withdrawal], ["transferencia_propria", "Retirada do negócio", true]);
+  assert.equal(isChoice("aporte"), true);
+  assert.equal(isChoice("negocio_vendas"), true);
+  assert.equal(BUSINESS_KINDS.has("negocio_custo"), true);
 });

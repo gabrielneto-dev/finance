@@ -1,19 +1,23 @@
 // Classificação de cada lançamento para Análises e Gastos (SPEC-0003, REQ-001).
 // Ver a decisão em Context/branches/produto/decisions/DEC-20261110-classificacao-analises.md.
 import { charged } from "../charged.mjs";
-import { categoryById, groupOf, neutralKind, pluggyCategory, SPECIAL_CHOICES } from "./categories.mjs";
+import { BUSINESS_GROUP, categoryById, groupOf, neutralKind, pluggyCategory, SPECIAL_CHOICES } from "./categories.mjs";
 import { merchantKey } from "./merchant.mjs";
 
 /** Tipos que contam como consumo ou renda. Os demais são neutros. */
 export const SPENDING_KINDS = new Set(["despesa", "estorno"]);
 export const INCOME_KINDS = new Set(["receita", "rendimento"]);
+/** Vendas e custos do negócio, fora das finanças pessoais (SPEC-0004, REQ-001). */
+export const BUSINESS_KINDS = new Set(["negocio_receita", "negocio_custo"]);
 
 /**
  * @typedef {{ value: string; source: "lancamento" | "estabelecimento" }} Choice
  * @typedef {{
- *   kind: "despesa" | "estorno" | "receita" | "rendimento" | "pagamento_fatura" | "transferencia_propria" | "investimento" | "emprestimo" | "ignorado";
+ *   kind: "despesa" | "estorno" | "receita" | "rendimento" | "pagamento_fatura" | "transferencia_propria" | "investimento" | "emprestimo" | "ignorado"
+ *     | "negocio_receita" | "negocio_custo";
  *   category: string; label: string; group: string; groupLabel: string; nature: "essencial" | "estilo" | null;
  *   amount: number; currency: string; pending: boolean; source: "pluggy" | "lancamento" | "estabelecimento";
+ *   refund?: boolean; withdrawal?: boolean;
  * }} Classified
  */
 
@@ -51,26 +55,52 @@ export function choiceFor(entry, choices) {
 export const entryKey = (entry) => entry.itemId + "/" + entry.accountId + "/" + entry.id;
 
 /**
- * @param {import("../types").Entry} entry
- * @param {{ accountType?: "BANK" | "CREDIT"; choice?: Choice | null }} [options]
+ * Venda ou custo do negócio. O lançamento na direção contrária à da categoria abate o valor.
+ * @param {{ amount: number; currency: string; pending: boolean; source: Classified["source"] }} base
+ * @param {import("./categories.mjs").Category} category
+ * @param {"DEBIT" | "CREDIT"} direction
  * @returns {Classified}
  */
-export function classify(entry, { accountType = "BANK", choice = null } = {}) {
+function businessRow(base, category, direction) {
+  const kind = category.direction === "CREDIT" ? "negocio_receita" : "negocio_custo";
+  return { ...base, kind, ...describe(category.id), refund: direction !== category.direction };
+}
+
+/**
+ * @param {import("../types").Entry} entry
+ * @param {{ accountType?: "BANK" | "CREDIT"; choice?: Choice | null; business?: boolean }} [options]
+ * `business` marca a conta do negócio (SPEC-0004, REQ-001).
+ * @returns {Classified}
+ */
+export function classify(entry, { accountType = "BANK", choice = null, business = false } = {}) {
   const { amount, currency } = charged(entry);
   const base = { amount, currency, pending: entry.status === "PENDING", source: choice?.source ?? "pluggy" };
   const special = choice && Object.hasOwn(SPECIAL_CHOICES, choice.value)
     ? /** @type {keyof typeof SPECIAL_CHOICES} */ (choice.value) : null;
   if (special) {
     const kind = /** @type {Classified["kind"]} */ (SPECIAL_CHOICES[special].kind);
-    return { ...base, kind, ...describe("sem", NEUTRAL_LABEL[kind]), group: "neutro", groupLabel: NEUTRAL_LABEL[kind], nature: null };
+    // Aporte e retirada mostram o próprio nome; as demais escolhas mantêm o nome do tipo.
+    const label = special === "aporte" || special === "retirada" ? SPECIAL_CHOICES[special].label : NEUTRAL_LABEL[kind];
+    return { ...base, kind, ...describe("sem", label), group: "neutro", groupLabel: label, nature: null,
+      ...(special === "retirada" ? { withdrawal: true } : {}) };
   }
   const chosen = choice && categoryById(choice.value) ? choice.value : null;
   if (!chosen) {
     const neutral = entry.method === "Fatura" ? "pagamento_fatura" : neutralKind(entry.category);
     if (neutral) {
       const kind = /** @type {Classified["kind"]} */ (neutral);
-      return { ...base, kind, ...describe("sem", NEUTRAL_LABEL[kind]), group: "neutro", groupLabel: NEUTRAL_LABEL[kind], nature: null };
+      // Na conta do negócio, a saída para outra conta própria é retirada (pró-labore).
+      const withdrawal = business && kind === "transferencia_propria" && entry.direction === "DEBIT";
+      return { ...base, kind, ...describe("sem", NEUTRAL_LABEL[kind]), group: "neutro", groupLabel: NEUTRAL_LABEL[kind], nature: null,
+        ...(withdrawal ? { withdrawal: true } : {}) };
     }
+  }
+  const chosenCategory = chosen ? categoryById(chosen) : null;
+  if (chosenCategory?.group === BUSINESS_GROUP) return businessRow(base, chosenCategory, entry.direction);
+  if (!chosen && business) {
+    // Sem escolha, a conta do negócio vende pelos créditos e gasta pelos débitos. No cartão, crédito é estorno de custo.
+    const id = entry.direction === "CREDIT" && accountType !== "CREDIT" ? "negocio_vendas" : "negocio_outros";
+    return businessRow(base, /** @type {import("./categories.mjs").Category} */ (categoryById(id)), entry.direction);
   }
   const id = chosen ?? pluggyCategory(entry.category, entry.direction);
   const category = id ? categoryById(id) : null;
@@ -96,3 +126,9 @@ export function classify(entry, { accountType = "BANK", choice = null } = {}) {
  * @param {Classified} row
  */
 export const spendingValue = (row) => (row.kind === "despesa" ? row.amount : row.kind === "estorno" ? -row.amount : 0);
+
+/**
+ * Valor com sinal dentro do negócio: venda e custo somam no próprio total, o estorno abate.
+ * @param {Classified} row
+ */
+export const businessValue = (row) => (BUSINESS_KINDS.has(row.kind) ? (row.refund ? -row.amount : row.amount) : 0);

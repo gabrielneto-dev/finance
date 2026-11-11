@@ -184,3 +184,29 @@ test("destaques escolhem as maiores mudanças e cortam em cinco", () => {
   assert.equal(insights({ groups: [], groupAverages: new Map(), recurring: [], pace: { isCurrent: false, projection: null, averageTotal: 0 },
     nextInstallments: null, averageIncome: 0, merchants: [] }).length, 0);
 });
+
+test("lucro do negócio fica fora de receitas e despesas pessoais e entra no resultado (SPEC-0004)", () => {
+  const sale = (date, amount) => ({ entry: entry(date, amount, { direction: "CREDIT", category: "Transfer - PIX" }),
+    info: classify(entry(date, amount, { direction: "CREDIT" }), { choice: { value: "negocio_vendas", source: "lancamento" } }),
+    account: "i1/a1", accountType: "BANK", merchant: "CLIENTE" });
+  const cost = (date, amount) => ({ entry: entry(date, amount), info: classify(entry(date, amount), { choice: { value: "negocio_mercadoria", source: "lancamento" } }),
+    account: "i1/a1", accountType: "BANK", merchant: "FORNECEDOR" });
+  const out = entry("2026-10-09", 20000, { category: "Same person transfer" });
+  const rows = [
+    row(entry("2026-10-02", 500000, { direction: "CREDIT", category: "Salary" })),
+    row(entry("2026-10-04", 100000)),
+    sale("2026-10-05", 60000), sale("2026-10-06", 40000), cost("2026-10-07", 70000),
+    { entry: out, info: classify(out, { business: true }), account: "i1/a2", accountType: "BANK", merchant: "X" },
+  ];
+  const totals = aggregate.totals(rows, "2026-10-01", "2026-10-31");
+  assert.equal(totals.income, 500000);
+  assert.equal(totals.expense, 100000);
+  assert.deepEqual(totals.business, { revenue: 100000, costs: 70000, profit: 30000, withdrawals: 20000 });
+  assert.equal(totals.result, 430000);
+  assert.equal(totals.savingsRate, 430000 / 530000);
+  assert.equal(totals.purchases, 1);
+  const [month] = aggregate.monthly(rows, ["2026-10"]);
+  assert.deepEqual([month.business, month.result], [30000, 430000]);
+  assert.deepEqual(aggregate.incomeSources(rows).map((item) => item.label), ["Salário", "Lucro do negócio"]);
+  assert.equal(aggregate.groups(rows, [], rows, ["2026-10"]).some((group) => group.id === "negocio"), false);
+});

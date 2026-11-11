@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CategoryPicker } from "@/components/category-picker";
-import { spendingValue } from "@/lib/analytics/classify.mjs";
+import { businessValue, spendingValue } from "@/lib/analytics/classify.mjs";
 import { merchantLabel } from "@/lib/analytics/merchant.mjs";
 import type { AnalyticsData, AnalyticsEntry } from "@/lib/analytics/types";
 import { brl, dayLabel, monthShort, Spark } from "./kit";
@@ -14,8 +14,8 @@ export type DetailSpec = {
   title: string; subtitle?: string;
   filter: (entry: AnalyticsEntry) => boolean;
   series?: { month: string; amount: number }[];
-  /** Soma como despesa (padrão) ou pelo valor bruto, para entradas. */
-  mode?: "spending" | "amount";
+  /** Soma como despesa (padrão), pelo valor bruto, para entradas, ou como lucro do negócio. */
+  mode?: "spending" | "amount" | "business";
 };
 
 const MAX_ROWS = 200;
@@ -33,7 +33,9 @@ export function DetailSheet({ spec, entries, accounts, onClose }: {
   }, [spec]);
 
   const rows = spec ? entries.filter(spec.filter).sort((a, b) => b.date.localeCompare(a.date)) : [];
-  const value = (row: AnalyticsEntry) => spec?.mode === "amount" ? row.info.amount : spendingValue(row.info);
+  const value = (row: AnalyticsEntry) => spec?.mode === "amount" ? row.info.amount
+    : spec?.mode === "business" ? (row.info.kind === "negocio_custo" ? -businessValue(row.info) : businessValue(row.info))
+    : spendingValue(row.info);
   const total = rows.reduce((sum, row) => sum + value(row), 0);
   const places = new Map<string, number>();
   for (const row of rows) places.set(row.merchant, (places.get(row.merchant) ?? 0) + value(row));

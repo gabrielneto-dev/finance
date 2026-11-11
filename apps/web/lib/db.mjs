@@ -57,6 +57,53 @@ export function openDatabase(filename) {
       owner TEXT NOT NULL, merchant_key TEXT NOT NULL, category TEXT NOT NULL, updated_at TEXT NOT NULL,
       PRIMARY KEY(owner,merchant_key)
     );
+    -- Planejamento (SPEC-0004). Valores em centavos e percentuais em centésimos de ponto (10000 = 100%).
+    -- A sincronização não toca nestas tabelas, exceto investments com source='pluggy'.
+    CREATE TABLE IF NOT EXISTS account_settings (
+      owner TEXT NOT NULL, item_id TEXT NOT NULL, account_id TEXT NOT NULL, business INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL, PRIMARY KEY(owner,item_id,account_id)
+    );
+    CREATE TABLE IF NOT EXISTS plan_buckets (
+      id TEXT PRIMARY KEY, owner TEXT NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL, mode TEXT NOT NULL,
+      amount INTEGER NOT NULL, rollover INTEGER NOT NULL DEFAULT 0, sort INTEGER NOT NULL DEFAULT 0,
+      archived INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS plan_buckets_owner ON plan_buckets(owner, archived, sort);
+    CREATE TABLE IF NOT EXISTS plan_bucket_groups (
+      owner TEXT NOT NULL, bucket_id TEXT NOT NULL REFERENCES plan_buckets(id) ON DELETE CASCADE,
+      group_key TEXT NOT NULL, PRIMARY KEY(owner,group_key)
+    );
+    CREATE TABLE IF NOT EXISTS plan_month_amounts (
+      owner TEXT NOT NULL, bucket_id TEXT NOT NULL REFERENCES plan_buckets(id) ON DELETE CASCADE,
+      month TEXT NOT NULL, amount INTEGER NOT NULL, PRIMARY KEY(bucket_id,month)
+    );
+    CREATE TABLE IF NOT EXISTS plan_income (
+      owner TEXT NOT NULL, month TEXT NOT NULL, expected INTEGER NOT NULL, PRIMARY KEY(owner,month)
+    );
+    CREATE TABLE IF NOT EXISTS plan_goals (
+      id TEXT PRIMARY KEY, owner TEXT NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL, target INTEGER,
+      months INTEGER, deadline TEXT, monthly INTEGER NOT NULL DEFAULT 0, yield_rate INTEGER NOT NULL DEFAULT 0,
+      source TEXT NOT NULL, current INTEGER NOT NULL DEFAULT 0, link TEXT, priority INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS plan_goals_owner ON plan_goals(owner);
+    CREATE TABLE IF NOT EXISTS plan_adjustments (
+      id TEXT PRIMARY KEY, owner TEXT NOT NULL, kind TEXT NOT NULL, label TEXT NOT NULL, start_month TEXT NOT NULL,
+      end_month TEXT, amount INTEGER, percent INTEGER, group_key TEXT, enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS plan_adjustments_owner ON plan_adjustments(owner);
+    CREATE TABLE IF NOT EXISTS investments (
+      id TEXT PRIMARY KEY, owner TEXT NOT NULL, source TEXT NOT NULL, external_id TEXT,
+      item_id TEXT REFERENCES connections(id) ON DELETE CASCADE, name TEXT NOT NULL, institution TEXT,
+      class TEXT NOT NULL, liquidity TEXT NOT NULL, balance INTEGER NOT NULL, due_date TEXT, updated_at TEXT NOT NULL,
+      UNIQUE(owner,source,external_id)
+    );
+    CREATE INDEX IF NOT EXISTS investments_owner ON investments(owner);
+    CREATE TABLE IF NOT EXISTS investment_snapshots (
+      investment_id TEXT NOT NULL REFERENCES investments(id) ON DELETE CASCADE, date TEXT NOT NULL,
+      balance INTEGER NOT NULL, PRIMARY KEY(investment_id,date)
+    );
   `);
   const hasReceivedAt = () => db.prepare("PRAGMA table_info(jobs)").all().some(({ name }) => name === "received_at");
   if (!hasReceivedAt()) atomic(db, () => {
@@ -216,12 +263,20 @@ export function notifyTransfers(db, itemId, entries) {
   }
 }
 
+/** Chaves `itemId/accountId` das contas do negócio. */
+export function businessAccounts(db, owner) {
+  return new Set(db.prepare("SELECT item_id,account_id FROM account_settings WHERE owner=? AND business=1").all(owner)
+    .map((row) => row.item_id + "/" + row.account_id));
+}
+
 export function dashboard(db, owner, from, to, scheduleFrom = "", billId = "", cycleDate = "", openDate = "") {
   const owned = "JOIN connections c ON c.id=t.item_id WHERE c.owner=? AND c.active=1";
   const select = (table) => db.prepare(`SELECT t.item_id,t.data FROM ${table} t ${owned}`).all(owner)
     .map((row) => ({ ...JSON.parse(row.data), itemId: row.item_id }));
   const bills = select("bills");
-  const accounts = select("accounts");
+  // Conta marcada como do negócio (SPEC-0004, REQ-001).
+  const business = businessAccounts(db, owner);
+  const accounts = select("accounts").map((row) => ({ ...row, business: business.has(row.itemId + "/" + row.id) }));
   // Escolha de categoria do proprietário em cada lançamento (SPEC-0003, REQ-004).
   const choices = loadChoices(db, owner);
   const withChoice = (row) => ({ ...row, choice: choiceFor(row, choices) });

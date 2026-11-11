@@ -1,5 +1,5 @@
 // Agregações das Análises (SPEC-0003, seção 1.5). Funções puras sobre lançamentos já classificados.
-import { spendingValue } from "./classify.mjs";
+import { businessValue, spendingValue } from "./classify.mjs";
 import { GROUPS } from "./categories.mjs";
 import { merchantLabel } from "./merchant.mjs";
 import { addMonths, daysBetween, daysInMonth, monthOf, shiftDays, weekday } from "./dates.mjs";
@@ -16,6 +16,16 @@ const sum = (/** @type {Row[]} */ rows, /** @type {(row: Row) => number} */ valu
 const spend = (/** @type {Row} */ row) => spendingValue(row.info);
 const isSpending = (/** @type {Row} */ row) => row.info.kind === "despesa" || row.info.kind === "estorno";
 const isIncome = (/** @type {Row} */ row) => row.info.kind === "receita" || row.info.kind === "rendimento";
+const business = (/** @type {Row} */ row) => businessValue(row.info);
+export const BUSINESS_PROFIT_LABEL = "Lucro do negócio";
+
+/** Vendas, custos, lucro e retiradas do negócio (SPEC-0004, REQ-001). */
+export function businessTotals(/** @type {Row[]} */ rows) {
+  const revenue = sum(rows.filter((row) => row.info.kind === "negocio_receita"), business);
+  const costs = sum(rows.filter((row) => row.info.kind === "negocio_custo"), business);
+  const withdrawals = sum(rows.filter((row) => row.info.withdrawal), (row) => row.entry.direction === "DEBIT" ? row.info.amount : 0);
+  return { revenue, costs, profit: revenue - costs, withdrawals };
+}
 
 /** @param {Row[]} rows @param {string} from @param {string} to */
 export const between = (rows, from, to) => rows.filter(({ entry }) => entry.date >= from && entry.date <= to);
@@ -29,10 +39,14 @@ export function totals(/** @type {Row[]} */ rows, /** @type {string} */ from, /*
   const pending = sum(rows.filter((row) => isSpending(row) && row.info.pending), spend);
   const neutral = Object.fromEntries(["pagamento_fatura", "transferencia_propria", "investimento", "emprestimo", "ignorado"]
     .map((kind) => [kind, sum(rows.filter((row) => row.info.kind === kind), (row) => row.info.amount)]));
-  const result = income - expense;
+  // O lucro do negócio entra no resultado, mas vendas e custos ficam fora das receitas e despesas pessoais.
+  const businessPart = businessTotals(rows);
+  const result = income + businessPart.profit - expense;
+  const base = income + Math.max(0, businessPart.profit);
   return {
     income, yield: yieldAmount, expense, refunds, pending, result,
-    savingsRate: income > 0 ? result / income : null,
+    savingsRate: base > 0 ? result / base : null,
+    business: businessPart,
     dailyAverage: Math.round(expense / Math.max(1, daysBetween(from, to))),
     purchases: rows.filter((row) => row.info.kind === "despesa").length,
     neutral,
@@ -45,7 +59,8 @@ export function monthly(/** @type {Row[]} */ rows, /** @type {string[]} */ month
     const inMonth = rows.filter(({ entry }) => monthOf(entry.date) === month);
     const income = sum(inMonth.filter(isIncome), (row) => row.info.amount);
     const expense = sum(inMonth.filter(isSpending), spend);
-    return { month, income, expense, result: income - expense };
+    const profit = businessTotals(inMonth).profit;
+    return { month, income, expense, business: profit, result: income + profit - expense };
   });
 }
 
@@ -162,7 +177,12 @@ function ranked(/** @type {Row[]} */ rows, /** @type {(row: Row) => string} */ l
 
 const methodLabel = (/** @type {Row} */ row) => row.entry.method ?? (row.accountType === "CREDIT" ? "Crédito" : "Não informada");
 
-export const incomeSources = (/** @type {Row[]} */ rows) => ranked(rows.filter(isIncome), (row) => row.info.label, (row) => row.info.amount);
+export function incomeSources(/** @type {Row[]} */ rows) {
+  const sources = ranked(rows.filter(isIncome), (row) => row.info.label, (row) => row.info.amount);
+  const { profit } = businessTotals(rows);
+  if (profit > 0) sources.push({ label: BUSINESS_PROFIT_LABEL, amount: profit });
+  return sources.sort((a, b) => b.amount - a.amount);
+}
 export const methods = (/** @type {Row[]} */ rows) => ranked(rows.filter(isSpending), methodLabel, spend);
 
 const BANDS = [["Madrugada", 0, 6], ["Manhã", 6, 12], ["Tarde", 12, 18], ["Noite", 18, 24]];

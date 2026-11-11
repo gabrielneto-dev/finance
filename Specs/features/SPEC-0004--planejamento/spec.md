@@ -1,9 +1,9 @@
 ---
 id: "SPEC-0004"
 title: "Planejamento financeiro"
-status: "draft"
+status: "active"
 created_at: "2026-11-10"
-updated_at: "2026-11-10"
+updated_at: "2026-11-11"
 priority: "next"
 dependencies: ["SPEC-0001", "SPEC-0003"]
 context_refs: ["CTX-DEC-20261110-planejamento", "CTX-RES-20261110-frameworks-planejamento", "CTX-DEC-20261110-classificacao-analises", "CTX-DEC-20261109-sem-avisos-de-atraso", "CTX-RSK-20261109-repositorio-publico"]

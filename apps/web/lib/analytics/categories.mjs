@@ -20,6 +20,8 @@ export const GROUPS = [
   { id: "terceiros", label: "Pix e transferências a terceiros", nature: null },
   { id: "outros", label: "Sem categoria", nature: null },
   { id: "entradas", label: "Entradas", nature: null },
+  // Compra e venda feita pelas mesmas contas (SPEC-0004, REQ-001). Fica fora das finanças pessoais.
+  { id: "negocio", label: "Negócio", nature: null },
 ];
 
 /** @type {Category[]} */
@@ -68,7 +70,15 @@ export const CATEGORIES = [
   { id: "recebidos", label: "Pix e transferências recebidas", group: "entradas", direction: "CREDIT",
     pluggy: ["Transfer - PIX", "Transfers", "Third party transfers", "Transfer - TED", "Transfer - DOC", "Transfer - Cash", "Transfer - Check", "Transfer - Bank Slip"] },
   { id: "outras", label: "Outras entradas", group: "entradas", direction: "CREDIT", pluggy: ["Non-recurring income", "Cashback"] },
+  { id: "negocio_vendas", label: "Vendas do negócio", group: "negocio", direction: "CREDIT", pluggy: [] },
+  { id: "negocio_mercadoria", label: "Compra de mercadoria", group: "negocio", direction: "DEBIT", pluggy: [] },
+  { id: "negocio_frete", label: "Frete e envio", group: "negocio", direction: "DEBIT", pluggy: [] },
+  { id: "negocio_taxas", label: "Taxas e plataformas", group: "negocio", direction: "DEBIT", pluggy: [] },
+  { id: "negocio_outros", label: "Outros custos do negócio", group: "negocio", direction: "DEBIT", pluggy: [] },
 ];
+
+/** Grupo das categorias de compra e venda (SPEC-0004, REQ-001). */
+export const BUSINESS_GROUP = "negocio";
 
 // Categorias da Pluggy que não são consumo nem renda. Ficam fora de despesas e receitas.
 export const NEUTRAL = {
@@ -82,6 +92,8 @@ export const NEUTRAL = {
 export const SPECIAL_CHOICES = {
   ignorar: { label: "Ignorar nas análises", kind: "ignorado" },
   propria: { label: "Transferência entre minhas contas", kind: "transferencia_propria" },
+  aporte: { label: "Aporte em investimento", kind: "investimento" },
+  retirada: { label: "Retirada do negócio", kind: "transferencia_propria" },
 };
 
 const byId = new Map(CATEGORIES.map((row) => [row.id, row]));

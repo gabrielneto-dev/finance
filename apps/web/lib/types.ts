@@ -1,6 +1,8 @@
 export type Account = {
   id: string; itemId: string; name: string; type: "BANK" | "CREDIT"; subtype?: string;
   last4: string | null; currency: string; balance: number | null; closes: string | null; due: string | null;
+  /** Conta marcada como do negócio (SPEC-0004). */
+  business?: boolean;
   bank?: {
     closingBalance: number | null; investedBalance: number | null; overdraftLimit: number | null;
     overdraftUsed: number | null; unarrangedOverdraft: number | null;

@@ -19,6 +19,36 @@ const AVERAGE_PERIODS = 3;
 const keyOf = (/** @type {{ itemId: string; accountId?: string; id?: string }} */ row) => row.itemId + "/" + (row.accountId ?? row.id);
 
 /**
+ * Contas resumidas e lançamentos em reais classificados, a partir de dashboard().
+ * Também usado pelo Planejamento (SPEC-0004).
+ * @param {ReturnType<typeof dashboard>} base
+ * @param {string} [account] chave de uma conta, para filtrar
+ */
+export function classifyEntries(base, account = "") {
+  const accounts = base.accounts.map((row) => ({
+    key: keyOf(row), itemId: row.itemId, id: row.id, name: row.name, type: row.type, last4: row.last4 ?? null,
+    currency: row.currency, balance: row.balance ?? null,
+    limit: row.credit?.limit ?? null, available: row.credit?.availableLimit ?? null, business: Boolean(row.business),
+  }));
+  const accountTypes = new Map(accounts.map((row) => [row.key, row.type]));
+  const businessKeys = new Set(accounts.filter((row) => row.business).map((row) => row.key));
+  const selected = accounts.find((row) => row.key === account) ?? null;
+  // Conta pedida que não existe para o dono não mostra nada.
+  const chosen = (/** @type {{ itemId: string; accountId?: string; id?: string }} */ row) => !account || keyOf(row) === selected?.key;
+  let foreign = 0;
+  /** @type {import("./aggregate.mjs").Row[]} */
+  const rows = [];
+  for (const entry of base.entries) {
+    if (!chosen(entry)) continue;
+    if (charged(entry).currency !== CURRENCY) { foreign += 1; continue; }
+    const accountType = accountTypes.get(keyOf(entry)) ?? "BANK";
+    rows.push({ entry, info: classify(entry, { accountType, choice: entry.choice ?? null, business: businessKeys.has(keyOf(entry)) }),
+      account: keyOf(entry), accountType, merchant: merchantKey(entry.description) });
+  }
+  return { accounts, chosen, rows, foreign };
+}
+
+/**
  * @param {import("node:sqlite").DatabaseSync} db
  * @param {string} owner
  * @param {{ from: string; to: string; compareFrom?: string; compareTo?: string; account?: string; reference: string }} options
@@ -33,25 +63,7 @@ export function analytics(db, owner, { from, to, compareFrom, compareTo, account
   const end = to > reference ? to : reference;
   const base = dashboard(db, owner, start, end, reference, "", reference, reference);
 
-  const accounts = base.accounts.map((row) => ({
-    key: keyOf(row), itemId: row.itemId, id: row.id, name: row.name, type: row.type, last4: row.last4 ?? null,
-    currency: row.currency, balance: row.balance ?? null,
-    limit: row.credit?.limit ?? null, available: row.credit?.availableLimit ?? null,
-  }));
-  const accountTypes = new Map(accounts.map((row) => [row.key, row.type]));
-  const selected = accounts.find((row) => row.key === account) ?? null;
-  // Conta pedida que não existe para o dono não mostra nada.
-  const chosen = (/** @type {{ itemId: string; accountId?: string; id?: string }} */ row) => !account || keyOf(row) === selected?.key;
-
-  let foreign = 0;
-  /** @type {import("./aggregate.mjs").Row[]} */
-  const rows = [];
-  for (const entry of base.entries) {
-    if (!chosen(entry)) continue;
-    if (charged(entry).currency !== CURRENCY) { foreign += 1; continue; }
-    const accountType = accountTypes.get(keyOf(entry)) ?? "BANK";
-    rows.push({ entry, info: classify(entry, { accountType, choice: entry.choice ?? null }), account: keyOf(entry), accountType, merchant: merchantKey(entry.description) });
-  }
+  const { accounts, chosen, rows, foreign } = classifyEntries(base, account);
   const until = (/** @type {string} */ date) => rows.filter((row) => row.entry.date <= date);
   const current = aggregate.between(rows, from, to);
   const before = aggregate.between(rows, previous.from, previous.to);

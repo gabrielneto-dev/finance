@@ -5,7 +5,7 @@ import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContaine
 import { HiddenValues } from "@/components/hidden-values";
 import type { SectionProps } from "./analytics-page";
 import { AXIS, axisMoney, brl, ChartCard, compact, dayLabel, Delta, Empty, GRID, Kpi, Legend, level, SEQUENTIAL, SERIES, TooltipBox } from "./kit";
-import { dayDetail, groupDetail, incomeDetail, methodDetail } from "./details";
+import { businessDetail, dayDetail, groupDetail, incomeDetail, methodDetail } from "./details";
 import { RankList } from "./rank-list";
 
 const INCOME = "var(--series-1)";
@@ -39,21 +39,29 @@ export function CashflowSection({ data, compare, openDetail }: SectionProps) {
 }
 
 function WaterfallCard({ data, openDetail }: Pick<SectionProps, "data" | "openDetail">) {
-  const { income, expense, result } = data.totals.current;
-  if (!income && !expense) return <ChartCard className="span-8" title="Do que entrou ao que sobrou"><Empty>Sem movimentação no período.</Empty></ChartCard>;
+  const { income, expense, result, business } = data.totals.current;
+  if (!income && !expense && !business.profit) return <ChartCard className="span-8" title="Do que entrou ao que sobrou"><Empty>Sem movimentação no período.</Empty></ChartCard>;
   const top = data.groups.filter((group) => group.amount > 0).slice(0, WATERFALL_GROUPS);
   const rest = expense - top.reduce((sum, group) => sum + group.amount, 0);
   const steps = [...top.map((group) => ({ id: group.id, label: group.label, amount: group.amount })),
     ...(rest > 0 ? [{ id: "", label: "Outros grupos", amount: rest }] : [])];
   let running = income;
   const bars = [{ id: "receitas", label: "Receitas", range: [0, income], amount: income, kind: "income" }];
+  // O lucro do negócio entra como origem própria; o prejuízo abate antes das despesas.
+  if (business.profit) {
+    bars.push({ id: "negocio", label: business.profit > 0 ? "Lucro do negócio" : "Prejuízo do negócio",
+      range: [Math.min(running, running + business.profit), Math.max(running, running + business.profit)],
+      amount: business.profit, kind: business.profit > 0 ? "income" : "expense" });
+    running += business.profit;
+  }
   for (const step of steps) {
     bars.push({ id: step.id, label: step.label, range: [running - step.amount, running], amount: -step.amount, kind: "expense" });
     running -= step.amount;
   }
   bars.push({ id: "resultado", label: result >= 0 ? "Sobrou" : "Faltou", range: [Math.min(0, result), Math.max(0, result)], amount: result, kind: "result" });
   const color = (kind: string) => kind === "income" ? INCOME : kind === "expense" ? EXPENSE : "#2f3632";
-  return <ChartCard className="span-8" title="Do que entrou ao que sobrou" detail="Receitas menos cada grupo de despesa até o resultado">
+  return <ChartCard className="span-8" title="Do que entrou ao que sobrou"
+    detail={"Receitas" + (business.profit ? " e o resultado do negócio" : "") + " menos cada grupo de despesa até o resultado"}>
     <div className="an-chart" style={{ height: 36 + bars.length * 30 }}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={bars} layout="vertical" margin={{ top: 4, right: 12, bottom: 0, left: 4 }} barCategoryGap="22%">
@@ -64,7 +72,8 @@ function WaterfallCard({ data, openDetail }: Pick<SectionProps, "data" | "openDe
           <Tooltip cursor={{ fill: "#f1f5f2" }} content={({ active, payload }) => active && payload?.length
             ? <TooltipBox title={payload[0].payload.label} rows={[{ label: "Valor", value: brl(payload[0].payload.amount) }]} /> : null} />
           <Bar dataKey="range" radius={[4, 4, 4, 4]} isAnimationActive={false} cursor="pointer"
-            onClick={(entry) => { const bar = entry.payload as (typeof bars)[number]; if (bar?.kind === "expense" && bar.id) openDetail(groupDetail(data, bar.id, bar.label)); }}>
+            onClick={(entry) => { const bar = entry.payload as (typeof bars)[number]; if (bar?.id === "negocio") openDetail(businessDetail());
+              else if (bar?.kind === "expense" && bar.id) openDetail(groupDetail(data, bar.id, bar.label)); }}>
             {bars.map((bar) => <Cell key={bar.label} fill={color(bar.kind)} />)}
           </Bar>
         </BarChart>

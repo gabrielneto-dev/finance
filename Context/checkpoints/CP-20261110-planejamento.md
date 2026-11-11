@@ -6,7 +6,7 @@ branch: "global"
 tags: ["escopo", "pluggy"]
 status: "active"
 created_at: "2026-11-10"
-updated_at: "2026-11-10"
+updated_at: "2026-11-11"
 supersedes: ["CTX-CP-20261110-analises"]
 related: ["CTX-DEC-20261110-planejamento", "CTX-RES-20261110-frameworks-planejamento", "CTX-DEC-20261110-classificacao-analises", "CTX-NTE-20261109-ambiente-local"]
 ---
@@ -45,4 +45,5 @@ O usuário pediu uma aba de planejamento: caixinhas ("tanto para gastar aqui, ta
   - as tabelas `category_overrides` e `category_rules` são criadas sozinhas ao abrir o painel.
 
   Ver a [nota do ambiente](../global/notes/NTE-20261109-ambiente-local.md).
+- **Situação da máquina Windows (2026-11-11).** A pasta principal e o worktree `project-status-check-5f294d` receberam o pull até `6fbb8af`, por fast-forward. Ainda faltam `npm ci`, build, credenciais novas no `.env` e reconexão. O worker iniciado ali em 2026-11-10 saiu com código 4 por volta das 20h05 UTC, sem mensagem de erro, e não está rodando. Por isso a chegada da rodada automática (SPEC-0002-T003) não foi observada nessa máquina.
 - **Retomada.** Leia o [estado SDD](../../Specs/STATE.md), a [spec](../../Specs/features/SPEC-0004--planejamento/spec.md) e as [tarefas](../../Specs/features/SPEC-0004--planejamento/tasks.md). Para rodar, siga a [nota do ambiente](../global/notes/NTE-20261109-ambiente-local.md).

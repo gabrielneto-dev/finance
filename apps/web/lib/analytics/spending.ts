@@ -10,7 +10,10 @@ const key = (row: { itemId: string; accountId?: string; id?: string }) => row.it
 /** Classifica cada lançamento com o tipo da conta e a escolha do proprietário. */
 export function analyzer(accounts: Account[]) {
   const types = new Map(accounts.map((row) => [key(row), row.type]));
-  return (row: Entry): Classified => classify(row, { accountType: types.get(key(row)) ?? "BANK", choice: row.choice ?? null });
+  const business = new Set(accounts.filter((row) => row.business).map(key));
+  return (row: Entry): Classified => classify(row, {
+    accountType: types.get(key(row)) ?? "BANK", choice: row.choice ?? null, business: business.has(key(row)),
+  });
 }
 
 /** Lançamentos que contam em Gastos: despesas e estornos. */

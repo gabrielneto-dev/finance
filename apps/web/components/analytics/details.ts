@@ -23,7 +23,15 @@ export function dayDetail(date: string, label: string): DetailSpec {
   return { title: label, filter: (entry) => spending(entry) && entry.date === date };
 }
 
+export const BUSINESS_PROFIT_LABEL = "Lucro do negócio";
+const isBusiness = (entry: AnalyticsEntry) => entry.info.kind === "negocio_receita" || entry.info.kind === "negocio_custo";
+
+export function businessDetail(title = BUSINESS_PROFIT_LABEL): DetailSpec {
+  return { title, mode: "business", filter: isBusiness };
+}
+
 export function incomeDetail(label: string): DetailSpec {
+  if (label === BUSINESS_PROFIT_LABEL) return businessDetail();
   return { title: label, mode: "amount", filter: (entry) => (entry.info.kind === "receita" || entry.info.kind === "rendimento") && entry.info.label === label };
 }
 
