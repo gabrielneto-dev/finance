@@ -7,6 +7,7 @@ import test from "node:test";
 import { atomic, bind, bindExisting, claim, complete, dashboard, enqueue, openDatabase, retry } from "../lib/db.mjs";
 import { checkWebhookSecret, parseWebhook } from "../lib/webhook.mjs";
 import { runJob } from "../lib/sync.mjs";
+import { registerDevice } from "../lib/push.mjs";
 
 const id = (suffix) => "00000000-0000-4000-8000-" + String(suffix).padStart(12, "0");
 const itemId = id(1);
@@ -92,7 +93,13 @@ test("webhook sobrevive ao reinício, importa Pix e gera somente um aviso por tr
   assert.equal(dashboard(db, "owner", ...range).connections[0].webhookStatus, "queued");
   db.close();
   db = openDatabase(path);
+  // Aparelho do dono para o push de transferência (SPEC-0005, REQ-005).
+  assert.equal(registerDevice(db, "owner", "fcm-token-sintetico:" + "z".repeat(30)), true);
   await runJob(db, claim(db));
+  const push = claim(db);
+  assert.equal(push?.kind, "push", "a transferência nova gera um push para o aparelho do dono");
+  // Sem FIREBASE_SERVICE_ACCOUNT no ambiente, o push encerra sem rede.
+  await runJob(db, push);
   assert.equal(dashboard(db, "owner", ...range).connections[0].webhookStatus, "processed");
   assert.equal(dashboard(db, "owner", ...range).connections[0].webhookReceivedAt, job.receivedAt);
   assert.equal(enqueue(db, parseWebhook(event(id(6)), "sandbox-app")), true);
@@ -102,6 +109,7 @@ test("webhook sobrevive ao reinício, importa Pix e gera somente um aviso por tr
   assert.equal(result.unread, 1);
   assert.equal(result.notifications[0].amount, 3029);
   assert.equal(result.notifications[0].method, "Pix");
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM jobs WHERE kind='push'").get().n, 1, "só um push por transferência");
   assert.equal(dashboard(db, "another-owner", ...range).entries.length, 0);
   assert.equal(dashboard(db, "another-owner", ...range).unread, 0);
   assert.equal(dashboard(db, "another-owner", ...range).connections.length, 0);

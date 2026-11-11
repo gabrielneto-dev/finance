@@ -2,6 +2,7 @@ import { bind, connection, complete, enqueue, notifyTransfers, retry, saveConnec
 import { sandbox, uuid } from "./config.mjs";
 import { list, minor, pluggy, PluggyError, transactions } from "./pluggy.mjs";
 import { writeInvestments } from "./planning/store.mjs";
+import { deliverPush, enqueueNoticePush } from "./push.mjs";
 
 function optionalMoney(value, currency) {
   if (value == null) return null;
@@ -155,6 +156,8 @@ async function fullSync(db, job, item) {
 }
 
 export async function runJob(db, job) {
+  // Push de transferência (SPEC-0005): não depende da Pluggy nem do estado da conexão.
+  if (job.kind === "push") return deliverPush(db, job, { retry });
   const itemId = job.item_id;
   const linked = connection(db, itemId);
   if (job.kind === "disconnect") {
@@ -233,7 +236,7 @@ export async function runJob(db, job) {
       ? { createdAtFrom } : { ids: ids.join(",") }, accountCurrency);
     return activeWrite(db, job, () => {
       writeBatch(db, itemId, [], entries, []);
-      notifyTransfers(db, itemId, entries);
+      for (const notice of notifyTransfers(db, itemId, entries)) enqueueNoticePush(db, itemId, notice);
     });
   }
 

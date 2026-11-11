@@ -46,6 +46,7 @@ case "$origin" in https://*) ;; *) fail "APP_ORIGIN precisa começar com https:/
 case "$origin" in */) fail "APP_ORIGIN não pode terminar com barra." ;; esac
 case "$(get SUPABASE_PUBLISHABLE_KEY)" in sb_secret_*|*service_role*) fail "Use a chave publicável do Supabase, não a secreta." ;; esac
 [ "$(get PLUGGY_WEBHOOK_SECRET | wc -c)" -ge 33 ] || fail "PLUGGY_WEBHOOK_SECRET curto demais. Gere com: openssl rand -hex 32"
+[ -n "$(get FIREBASE_SERVICE_ACCOUNT)" ] || echo "AVISO: FIREBASE_SERVICE_ACCOUNT vazio. O app não vai receber avisos de transferência."
 
 if [ "$pull" = 1 ]; then
   step "Baixando o código"

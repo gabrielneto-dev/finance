@@ -100,6 +100,12 @@ export function openDatabase(filename) {
       UNIQUE(owner,source,external_id)
     );
     CREATE INDEX IF NOT EXISTS investments_owner ON investments(owner);
+    -- Aparelhos do app para push (SPEC-0005, REQ-005). O token do FCM só pertence a um dono.
+    CREATE TABLE IF NOT EXISTS devices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT, owner TEXT NOT NULL, token TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS devices_owner ON devices(owner);
     CREATE TABLE IF NOT EXISTS investment_snapshots (
       investment_id TEXT NOT NULL REFERENCES investments(id) ON DELETE CASCADE, date TEXT NOT NULL,
       balance INTEGER NOT NULL, PRIMARY KEY(investment_id,date)
@@ -178,9 +184,10 @@ export function complete(db, job, fn = () => {}, outcome = 1) {
   });
 }
 
-export function retry(db, job) {
+/** Devolve o trabalho à fila com espera crescente; minimum garante a espera pedida pelo serviço. */
+export function retry(db, job, minimum = 0) {
   db.prepare("UPDATE jobs SET until=0, due=? WHERE id=? AND lease=? AND done=0")
-    .run(Date.now() + Math.min(60 * 60_000, 5000 * 2 ** Math.min(job.tries, 10)), job.id, job.lease);
+    .run(Date.now() + Math.max(minimum, Math.min(60 * 60_000, 5000 * 2 ** Math.min(job.tries, 10))), job.id, job.lease);
 }
 
 export function bind(db, item, owner, intent) {
@@ -250,17 +257,21 @@ export function writeBatch(db, itemId, accounts, entries, bills) {
   for (const row of bills) bill.run(itemId, row.accountId, row.id, JSON.stringify(row));
 }
 
+/** Grava avisos de transferências novas e devolve os ids criados agora (para o push). */
 export function notifyTransfers(db, itemId, entries) {
+  const created = [];
   const linked = connection(db, itemId);
-  if (!linked?.active || !linked.synced_at) return;
+  if (!linked?.active || !linked.synced_at) return created;
   const insert = db.prepare("INSERT OR IGNORE INTO notices(item_id,account_id,entry_id,data,created_at) VALUES(?,?,?,?,?)");
   for (const row of entries) {
     if (row.transfer && row.status === "POSTED" && row.createdAt && row.createdAt > linked.baseline) {
-      insert.run(itemId, row.accountId, row.id, JSON.stringify({
+      const result = insert.run(itemId, row.accountId, row.id, JSON.stringify({
         direction: row.direction, amount: row.amount, currency: row.currency, method: row.method,
       }), new Date().toISOString());
+      if (result.changes > 0) created.push(Number(result.lastInsertRowid));
     }
   }
+  return created;
 }
 
 /** Chaves `itemId/accountId` das contas do negócio. */
