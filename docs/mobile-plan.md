@@ -1,6 +1,6 @@
 # Plano do Finance no celular: app Android em React Native
 
-**Versão 2**, de 2026-11-11, aguardando aprovação.
+**Versão 2**, de 2026-11-11, aprovada pelo usuário no mesmo dia. O Marco 1 está em andamento.
 
 Em 2026-11-11 você trocou a abordagem de PWA para **app React Native**. A versão 1 (PWA), aprovada antes, está no histórico do Git, no commit `f5be6c2`. O Marco 0 (backend público, sessão e deploy) continua igual, porque serve aos dois caminhos.
 
@@ -106,8 +106,8 @@ Com Expo:
 
 - O app entra direto no Supabase com e-mail e senha, usando a **chave publicável**, que é feita para ir no cliente (FATO: Supabase). Nenhuma chave secreta vai para o app.
 - **Sessão no aparelho:** segue o padrão da documentação do Supabase.
-  - A sessão fica criptografada com AES.
-  - A chave dessa criptografia fica no SecureStore, que no Android grava valores cifrados pelo Keystore (FATO).
+  - A sessão fica no SecureStore, que no Android grava valores cifrados pelo Keystore (FATO).
+  - **Desvio no Marco 1:** o plano previa AES com a chave no SecureStore. A documentação atual do SecureStore diz que o Expo não impõe limite de tamanho e que o limite de cerca de 2048 bytes era de versões antigas do iOS (FATO). Para um app só Android, guardar a sessão direto no SecureStore é mais simples e não depende de `aes-js` nem do AsyncStorage. Na prévia web, que é só para desenvolvimento, a sessão fica em `localStorage`, com dados sintéticos.
   - Nada fica em armazenamento sem criptografia.
   - Com `autoRefreshToken`, a sessão é renovada enquanto o app está em primeiro plano.
 - **Servidor:**
@@ -169,7 +169,7 @@ Por isso, os builds Android vão pelo **EAS na nuvem**. O plano gratuito inclui 
 - **Automáticos:**
   - `npm test` do web: Bearer válido, inválido, de outro e-mail, e Bearer na chave local recusado; POST com Bearer sem `Origin`; registro de aparelho; envio só para avisos novos; limpeza de token inválido; JWT do FCM;
   - `tsc --noEmit` no app e no web;
-  - testes das funções do app (formatação e estados), com `jest-expo`, que é o padrão do Expo. É uma dependência de desenvolvimento, justificada no Marco 1.
+  - testes das funções do app (formatação e estados). **Desvio no Marco 1:** em vez de `jest-expo`, os testes usam `node --test`, porque o Node 24 roda TypeScript direto. Assim, nenhuma dependência nova entra. O `jest-expo` só vale a pena quando houver testes de componentes.
 - **Prévia web nesta máquina:** login, telas, estados de erro e vazio, a 360 × 800.
 - **No seu celular:**
   - instalação do APK;
