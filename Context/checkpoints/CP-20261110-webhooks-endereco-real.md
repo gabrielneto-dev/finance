@@ -4,7 +4,8 @@ type: "checkpoint"
 title: "Máquina Linux em dia, nova conexão pelo widget e webhooks no endereço real"
 branch: "global"
 tags: ["pluggy", "seguranca", "plataformas"]
-status: "active"
+status: "superseded"
+superseded_by: "CTX-CP-20261110-analises"
 created_at: "2026-11-10"
 updated_at: "2026-11-10"
 supersedes: ["CTX-CP-20261110-atualizacao-frequente"]
