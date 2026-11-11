@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import { useEffect, useState } from "react";
 import { Linking, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -37,6 +38,7 @@ export default function Settings() {
         <Button label="Sair" variant="secondary" busy={busy}
           accessibilityHint="Encerra a sessão e apaga o acesso guardado neste aparelho"
           onPress={async () => { setBusy(true); await signOut(); }} />
+        <Text style={[styles.label, { textAlign: "center" }]}>Finance {Constants.expoConfig?.version ?? ""}</Text>
       </View>
     </SafeAreaView>
   );

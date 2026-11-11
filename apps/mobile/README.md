@@ -50,16 +50,57 @@ Copie `.env.example` para `.env` e preencha só valores públicos. Tudo com `EXP
 
 ## Instalar no celular (Android)
 
-Esta máquina não tem Android SDK, e o Expo não faz build Android local no Windows. Os builds são feitos pelo EAS, na nuvem.
+Esta máquina não tem Android SDK, e o Expo não faz build Android local no Windows. Os builds são feitos pelo EAS, na nuvem. O APK de produção aponta para `https://finance.vetracompany.com.br`, então o servidor de casa precisa estar no ar ([roteiro do Marco 0](../../docs/marco0-deploy.md)).
 
-1. Você cria uma conta gratuita em https://expo.dev e entra com `npx eas-cli login`. O agente não cria contas nem digita senhas.
-2. No painel do Expo, cadastre as variáveis do projeto `EXPO_PUBLIC_SUPABASE_URL` e `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
-3. Rode o build. Ele gera um APK instalável, que aponta para `https://finance.vetracompany.com.br`, e por isso exige o Marco 0 no ar:
+### Uma vez (você)
 
-   ```bash
-   cd apps/mobile && npx eas-cli build -p android --profile preview
-   ```
+1. Crie uma conta gratuita em https://expo.dev e entre com `npx eas-cli login`. O agente não cria contas nem digita senhas.
+2. Na pasta `apps/mobile`, vincule o projeto com `npx eas-cli init`.
+3. No painel do projeto em expo.dev, em **Environment variables**, cadastre no ambiente `production` (e em `preview`, se for usar esse perfil):
+   - `EXPO_PUBLIC_SUPABASE_URL`, com a URL do projeto Supabase;
+   - `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, com a chave publicável.
 
-4. Abra o link do build no celular e instale o APK. O Android pede para permitir a instalação desse app.
+   Use visibilidade *plain text* ou *sensitive*. Variáveis *secret* não chegam ao código do app (FATO, documentação do EAS).
+4. Para os avisos (Marco 2), cadastre o `google-services.json` do Firebase como variável do tipo arquivo, com o nome `GOOGLE_SERVICES_JSON`. O `app.config.js` usa essa variável como caminho do arquivo. HIPÓTESE, a confirmar no primeiro build: a documentação lida não diz com todas as letras que `process.env.GOOGLE_SERVICES_JSON` recebe o caminho.
 
-A chave de assinatura fica no EAS. Exporte uma cópia para um cofre seu. Sem ela, não dá para atualizar o app instalado sem desinstalar.
+### Gerar e instalar
+
+```bash
+cd apps/mobile && npx eas-cli build -p android --profile production
+```
+
+O EAS gera a chave de assinatura no primeiro build e devolve um link do APK. Abra o link no celular e instale. O Android pede uma vez para permitir instalações dessa origem.
+
+Hoje o APK instalado direto não precisa de verificação de desenvolvedor. Ela vale desde 30/09/2026 no Brasil só para lojas, e a expansão para todo app está prevista para 2027. Antes disso, registre o app numa conta gratuita de distribuição limitada.
+
+### Atualizar o app
+
+1. Se a mudança for visível para você, aumente `version` em `app.json` (por exemplo, 1.0.0 → 1.1.0).
+2. Rode o mesmo comando de build. O `versionCode` sobe sozinho (`appVersionSource: remote` e `autoIncrement` no perfil `production`).
+3. Instale o APK novo por cima do antigo, **sem desinstalar**. O Android só aceita a atualização se o certificado for o mesmo (FATO, documentação do Android). INFERÊNCIA, a confirmar no aparelho: o login guardado continua.
+
+Desinstalar apaga a sessão e o registro de avisos: os dados do SecureStore não sobrevivem à desinstalação no Android (FATO, documentação do SecureStore).
+
+### Guardar a chave de assinatura (obrigatório)
+
+Sem a chave, nenhuma atualização instala por cima. Seria preciso desinstalar e começar de novo. Depois do primeiro build:
+
+1. Rode `npx eas-cli credentials` em `apps/mobile`.
+2. Escolha **Android**.
+3. Escolha `credentials.json: Upload/Download credentials between EAS servers and your local json`.
+4. Escolha `Download credentials from EAS to credentials.json`.
+5. Guarde o `credentials.json` e o keystore num cofre de senhas ou disco criptografado, **fora do repositório**. O `.gitignore` já ignora esses nomes, mas não os deixe na pasta.
+
+### Ícone
+
+O ícone (um "F" branco sobre o verde do painel) é gerado sem dependências por `node apps/mobile/scripts/make-icons.mjs`. Para trocar o desenho, edite as formas no script e rode de novo.
+
+### Privacidade no aparelho
+
+- O backup automático do Android está desligado (`allowBackup: false`).
+- Permissões de armazenamento e de sobreposição de tela foram removidas (`blockedPermissions`).
+- O app pede só internet e notificações.
+
+### Desenvolvimento no aparelho (opcional)
+
+Para testar mudanças no celular sem gerar APK a cada vez, instale `expo-dev-client` e crie um perfil `development` com `"developmentClient": true`. Isso não foi feito para não acrescentar dependência antes de precisar.
