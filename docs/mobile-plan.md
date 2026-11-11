@@ -89,6 +89,7 @@ FCM (serviço de push do Chrome) ◀──Web Push (VAPID, RFC 8291)── worke
   - Os dados atuais pertencem a `"local-owner"`. No Supabase, o dono passa a ser o `user.id` (FATO: `DEC-20261108-acesso-finance`).
   - Opção A (recomendada): script com backup `VACUUM INTO`, simulação e confirmação, que troca o dono em `connections`, `plan_*`, `category_*`, `account_settings`, `investments` e `intents`.
   - Opção B: reconectar pelo widget. É mais simples, mas perde o Planejamento e as categorias escolhidas.
+  - **Escolha do usuário em 2026-11-11: opção B.** A produção começa vazia, e a conta é reconectada por "Importar conexão existente" ou pelo widget. O script da opção A fica no código, como alternativa ([roteiro](marco0-deploy.md)).
 
 ## 4. Estratégia offline
 
@@ -203,7 +204,7 @@ Passo a passo da parte operacional: [marco0-deploy.md](marco0-deploy.md).
 Tarefas:
 1. Criar o projeto Supabase e o seu usuário, com cadastro aberto desligado.
 2. Criar o `proxy.ts` que renova a sessão.
-3. Script de migração do dono, com backup e confirmação.
+3. Reconectar a conta pela produção (opção B, escolhida pelo usuário). O script de migração fica como alternativa.
 4. Subir web e worker por Compose no host da produção, com `cloudflared` encaminhando para `127.0.0.1:3000`.
 5. Ajustar o `.env` (`APP_ORIGIN` HTTPS e `FINANCE_LOCAL_KEY_HASH` vazio).
 6. Cadastrar os webhooks pelo script.
@@ -307,7 +308,7 @@ Em dias de trabalho (INFERÊNCIA):
 | Servidor de casa fora do ar (luz, internet, reinício) | Média / médio | O túnel só faz conexões de saída, sem abrir porta no roteador e funcionando atrás de CGNAT. Compose com `restart: unless-stopped`, e Docker e `cloudflared` como serviços do sistema. Ao voltar, a consulta periódica do worker (SPEC-0002) recupera o que a Pluggy sincronizou, e os avisos são enviados nessa importação. Opcional: nobreak |
 | Perda do disco do servidor de casa | Baixa / alto | Backup diário por `VACUUM INTO` copiado para **outro aparelho** ou disco externo, criptografado. O `.env.production` fica guardado à parte |
 | Projeto Supabase gratuito pausado por inatividade | Média / alto (o login para) | A documentação oficial diz que projetos gratuitos pausam com pouca atividade em 7 dias, com e-mail de aviso antes, e voltam pelo painel. INFERÊNCIA: o uso diário do login deve contar como atividade, mas não há garantia. Saídas: plano Pro, que nunca pausa, ou trocar o login por um que não dependa de serviço externo. Fica para você decidir |
-| Migração do dono corromper ou perder dados | Baixa / alto | `VACUUM INTO` antes, simulação, contagens antes e depois, sua autorização e retorno pelo backup |
+| Perder dados que só existiam no SQLite local | Certa / aceita | O usuário escolheu reconectar (2026-11-11). O banco da máquina Linux fica intacto e serve de referência |
 | Push atrasado ou perdido pela economia de bateria (Xiaomi, Samsung) | Média / alto, porque é requisito | Urgência `high` e TTL, observação de 7 dias, orientação para tirar o Chrome da otimização de bateria. **Gatilho do plano B** |
 | Retorno do OAuth abrir no Chrome em vez do app | Média / médio | Escopo `/` no manifest e teste em homologação. A sessão é a mesma, então a conexão conclui. Se ficar ruim, é **gatilho do plano B** |
 | Repositório público expor segredos novos (VAPID, credenciais de túnel) | Média / alto | Só variáveis de ambiente, campos vazios no `.env.example`, `git diff --cached` e busca por segredos antes de cada commit |
@@ -324,7 +325,7 @@ O plano B é o **Expo**, com o SDK oficial `react-native-pluggy-connect` 1.6.0 e
 Nenhuma bloqueia a aprovação do plano. Todas precisam de resposta antes do marco indicado.
 
 1. ~~Host da produção~~: respondido em 2026-11-11. É o servidor de casa, com Ubuntu Server, Docker e `cloudflared`, e não é a máquina que guarda o banco atual. O roteiro copia os dados pela rede de casa.
-2. **Migração do dono** (Marco 0): opção A (script) ou B (reconectar e perder o Planejamento)?
+2. ~~Migração do dono~~: respondido em 2026-11-11, reconectar (opção B).
 3. **Homologação** (Marco 0 ou 4): vale manter um segundo ambiente, ou testar o OAuth direto na produção?
 4. **Celular de teste** (Marco 1): qual modelo e qual versão do Android?
 5. **Lint** (Marco 1): adicionar ESLint (uma dependência de desenvolvimento e configuração para manter) ou ficar só com `typecheck`? Recomendo só `typecheck` agora.

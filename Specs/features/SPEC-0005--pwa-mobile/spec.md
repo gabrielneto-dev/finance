@@ -26,7 +26,7 @@ Quando aprovada, esta spec substitui a parte de paridade web/Android da SPEC-000
 | ID | Requisito | Aceite resumido (completo no plano, item 10) |
 | --- | --- | --- |
 | REQ-001 | Backend público em HTTPS com Supabase Auth e sessão estável | Login pelo 4G. Outro e-mail recusado. 401 sem sessão. Sessão válida após 2 h e após 1 dia. Logout revoga. Webhook 204 e Processado. Chave local segue em loopback |
-| REQ-002 | Dados do dono preservados na troca para Supabase | Backup antes, contagens iguais antes e depois, migração autorizada pelo usuário |
+| REQ-002 | Conta reconectada na produção (o usuário escolheu reconectar em 2026-11-11, e não migrar) | Conexão Conectada pelo usuário Supabase, saldos iguais aos do banco, e o banco local intacto. Planejamento e categorias começam vazios, como o usuário aceitou. O script `migrate-owner` fica como alternativa testada |
 | REQ-003 | App instalável e Visão geral real no celular | "Instalar app" no Chrome Android, abre em `standalone`, login e Visão geral com dados reais, desktop igual |
 | REQ-004 | Nenhum dado financeiro em cache no aparelho | Página offline estática. Cache Storage sem `/api/*` nem HTML autenticado |
 | REQ-005 | Push de transferência com o app fechado | Teste e transferência real chegam com a tela bloqueada. Nenhum aviso perdido em 7 dias. Sem envio na primeira importação |

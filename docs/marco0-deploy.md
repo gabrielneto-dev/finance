@@ -1,166 +1,143 @@
-# Marco 0: publicar o Finance em HTTPS com Supabase
+# Marco 0: publicar o Finance no servidor de casa
 
-Roteiro operacional da [SPEC-0005](../Specs/features/SPEC-0005--pwa-mobile/spec.md), tarefa T002. O código (Proxy de sessão, migração do dono e correção do Docker) já está no branch.
+Roteiro operacional da [SPEC-0005](../Specs/features/SPEC-0005--pwa-mobile/spec.md), tarefa T002. Código, scripts e imagem estão prontos e testados no branch `claude/mobile-pwa`.
+
+**Servidor:** Ubuntu Server de casa, com Docker e `cloudflared`. Ele não é a máquina que guarda o banco atual.
+
+**Decisão de 2026-11-11:** o banco atual não vai para o servidor. A produção começa vazia, e você **reconecta** a conta da Pluggy pelo painel publicado.
+
+| Volta sozinho | Fica para trás |
+| --- | --- |
+| Contas, saldos, faturas e o histórico de lançamentos que a Pluggy guardar. A importação inicial busca tudo o que ela tiver | O que só existia no SQLite local: Planejamento (caixinhas, metas, projeções, investimentos manuais), categorias escolhidas, nomes das conexões e contas marcadas como do negócio |
 
 Quem faz cada passo:
-- **Você:** criar contas, digitar senhas e chaves, e autorizar ações destrutivas.
-- **O agente:** comandos e conferências que não envolvem credenciais.
+- **Você:** criar contas, digitar senhas e chaves, e confirmar ações destrutivas.
+- **O agente:** comandos e conferências sem credenciais.
 
-A produção roda no **servidor de casa**, com Ubuntu Server, Docker e `cloudflared` já instalados (suas respostas de 2026-11-11). Ele **não** é a máquina que guarda o banco atual: o passo 3 leva os dados até ele. Pelo contexto do projeto, o banco mais recente está na máquina Linux, com o Item MeuPluggy vinculado em 2026-11-10.
+## Regras para o servidor de casa
 
-Máquinas citadas:
-- **Origem:** a máquina Linux com o SQLite atual.
-- **Servidor:** o Ubuntu de casa.
-
-Regras para o servidor de casa:
-- **Não abra portas no roteador.** O túnel só faz conexões de saída. O Compose já publica o web só em `127.0.0.1:3000`.
-- Docker e `cloudflared` precisam subir como serviços do sistema, para voltarem sozinhos depois de queda de luz ou reinício: `sudo systemctl enable --now docker` e `cloudflared service install`. Os contêineres já usam `restart: unless-stopped`.
-- Mantenha o sistema atualizado (`unattended-upgrades`) e acesse por SSH com chave, não por senha.
-- O servidor não precisa de Node instalado. Tudo roda dentro da imagem.
+- **Não abra portas no roteador.** O túnel só faz conexões de saída. O Compose publica o web só em `127.0.0.1:3000`.
+- Docker e `cloudflared` sobem como serviços do sistema, para voltarem sozinhos depois de queda de luz ou reinício. Os contêineres já usam `restart: unless-stopped`.
+- Mantenha o sistema atualizado (`unattended-upgrades`) e acesse por SSH com chave.
+- O servidor não precisa de Node. Tudo roda dentro da imagem.
 
 ## 1. Supabase (você)
 
 1. Crie um projeto em https://supabase.com. Região sugerida: São Paulo.
-2. Em **Authentication**, desligue o cadastro aberto ("Allow new users to sign up"). O app já recusa outros e-mails, e isso fecha a porta também no Supabase.
+2. Em **Authentication**, desligue o cadastro aberto ("Allow new users to sign up").
 3. Em **Authentication → Users**, crie o seu usuário com e-mail e senha forte e marque como confirmado. Use o mesmo e-mail de `FINANCE_OWNER_EMAIL`.
-4. Anote o **UID** do usuário. É ele que entra na migração do passo 4.
-5. Em **Project Settings → API Keys**, copie a URL do projeto e a chave **publicável**. Não use a chave `service_role`: o Finance não precisa dela.
+4. Em **Project Settings → API Keys**, copie a URL do projeto e a chave **publicável**. Não use a chave secreta (`service_role`). O deploy recusa chaves `sb_secret_`.
 
-## 2. Arquivo de ambiente da produção (você)
+O plano gratuito pausa projetos com pouca atividade em 7 dias e manda um e-mail antes ([documentação](https://supabase.com/docs/guides/platform/free-project-pausing)). Usar o Finance com frequência deve bastar.
 
-Crie `.env.production`. Ele vai para a raiz do projeto no servidor (passo 3.1), e o `.gitignore` já exclui esse arquivo. Copie as linhas da Pluggy do `.env` atual e ajuste:
+## 2. Preparar o servidor (uma vez)
 
-```
-APP_ORIGIN=https://finance.vetracompany.com.br
-FINANCE_LOCAL_KEY_HASH=
-FINANCE_OWNER_EMAIL=<seu e-mail>
-SUPABASE_URL=<URL do projeto>
-SUPABASE_PUBLISHABLE_KEY=<chave publicável>
-PLUGGY_CLIENT_ID=<igual ao .env>
-PLUGGY_CLIENT_SECRET=<igual ao .env>
-PLUGGY_SANDBOX=0
-PLUGGY_EXISTING_ITEM_ID=
-PLUGGY_WEBHOOK_SECRET=<o mesmo, ou um novo gerado com openssl rand -hex 32>
+```bash
+sudo systemctl enable --now docker
 ```
 
-O `.env` de desenvolvimento continua igual, com `APP_ORIGIN=http://127.0.0.1:3001` e a chave local.
+```bash
+sudo usermod -aG docker "$USER"
+```
 
-## 3. Código e dados no servidor
-
-### 3.1 Código
-
-O branch `claude/mobile-pwa` precisa estar no GitHub para o servidor baixar. O repositório é público e o branch só tem código e documentação, sem segredos. No servidor:
+Saia e entre de novo no SSH para o grupo `docker` valer. Depois:
 
 ```bash
 git clone https://github.com/gabrielneto-dev/finance.git ~/finance && cd ~/finance && git switch claude/mobile-pwa
 ```
 
-Coloque o `.env.production` do passo 2 em `~/finance/.env.production`, com `chmod 600`.
-
-### 3.2 Exportar o banco na origem
-
-Na origem, pare o `next start` e o worker. Antes de encerrar o worker, procure processos `node` com `worker.mjs`. Depois, na raiz do projeto:
-
 ```bash
-(umask 077 && node -e "new (require('node:sqlite').DatabaseSync)('apps/web/data/finance.sqlite').exec(\"VACUUM INTO '/tmp/finance-export.sqlite'\")")
+cp .env.production.example .env.production && chmod 600 .env.production && nano .env.production
 ```
 
-O `VACUUM INTO` gera um arquivo único e consistente, já com o conteúdo do WAL.
+No `.env.production`, preencha as variáveis abaixo. Os comentários do arquivo explicam cada uma.
+- **Supabase:** `FINANCE_OWNER_EMAIL`, `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`.
+- **Pluggy:** `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET`, iguais aos do `.env` atual.
+- **Webhook:** `PLUGGY_WEBHOOK_SECRET`, gerado com `openssl rand -hex 32`.
 
-### 3.3 Enviar pela rede de casa
+Para reconectar sem nova autorização, ponha também em `PLUGGY_EXISTING_ITEM_ID` o id do Item MeuPluggy atual. Ele está no `.env` da máquina Linux.
 
-```bash
-ssh <usuario>@<servidor> "mkdir -p ~/finance/apps/web/data/import && chmod 700 ~/finance/apps/web/data/import"
-```
-
-```bash
-scp /tmp/finance-export.sqlite <usuario>@<servidor>:~/finance/apps/web/data/import/finance.sqlite
-```
+## 3. Publicar
 
 ```bash
-rm /tmp/finance-export.sqlite
+cd ~/finance && bash deploy/deploy.sh
 ```
 
-Não use Git, e-mail nem nuvem: o repositório é público, e o banco tem dados bancários reais. A pasta `apps/web/data/` fica fora do Git pelo `.gitignore`.
+O script faz o seguinte:
+1. Confere Docker e o `.env.production`, sem mostrar valores, e recusa a publicação nestes casos:
+   - chave local preenchida;
+   - origem sem HTTPS ou terminada em barra;
+   - variável obrigatória vazia;
+   - chave secreta do Supabase;
+   - segredo de webhook curto.
+2. Faz `git pull`, gera a imagem e sobe web e worker.
+3. Espera o web ficar saudável e confere `/api/health` e o worker.
 
-### 3.4 Gerar a imagem e importar no volume (servidor)
+Para atualizar depois, rode o mesmo comando. O volume com o banco é preservado.
 
-Use `build`, e não `up`. Um `up` iniciaria web e worker, que criariam um banco vazio no volume antes da importação.
+## 4. Túnel da Cloudflare (você)
+
+1. No painel Zero Trust, em **Networks → Tunnels**, abra o túnel do `finance.vetracompany.com.br` e instale um conector no servidor. O painel mostra um comando `sudo cloudflared service install <token>`. Ele já instala o conector como serviço.
+2. No hostname público `finance.vetracompany.com.br`, aponte o serviço para `http://localhost:3000`. Hoje ele aponta para a porta 3001 de outra máquina.
+3. **Desligue os conectores de outras máquinas nesse túnel.** Com dois conectores ativos, a Cloudflare reparte as requisições, e parte delas cai na máquina errada.
+
+## 5. Webhooks da Pluggy
+
+Com o domínio respondendo:
 
 ```bash
-cd ~/finance && export FINANCE_ENV_FILE=.env.production && docker compose build
+bash deploy/deploy.sh --webhooks
 ```
+
+O script confere `https://finance.vetracompany.com.br/api/health` e cadastra os nove eventos em `/api/webhooks/pluggy`. Depois, no Dashboard da Pluggy, desative o cadastro antigo `all` em `/connections/pluggy/callback`. Isso exige a sua confirmação.
+
+## 6. Reconectar a conta (você, pelo navegador)
+
+Entre em `https://finance.vetracompany.com.br` com o usuário do Supabase e abra **Conexões**.
+
+- **Mais rápido:** **Importar conexão existente**, se `PLUGGY_EXISTING_ITEM_ID` foi preenchido. O Item atual é vinculado sem nova autorização, e o worker importa o histórico.
+- **Alternativa:** **Conectar instituição**, que abre o widget e cria uma nova autorização. O retorno do OAuth já usa `https://finance.vetracompany.com.br/pluggy/retorno`. A reautorização também libera os investimentos da SPEC-0004-T012.
+
+A conexão passa para **Conectada** quando o worker termina.
+
+A primeira importação não gera avisos de transferência, como hoje.
+
+## 7. Backup diário
 
 ```bash
-docker compose run --rm --no-deps -v "$PWD/apps/web/data/import:/src:ro" web cp -n /src/finance.sqlite /data/finance.sqlite
+cd ~/finance && bash deploy/backup.sh
 ```
 
-O `cp -n` não sobrescreve um banco que já exista no volume. O arquivo fica com o dono `node`, que é o usuário do contêiner.
+O script funciona assim:
+- gera uma cópia consistente com `VACUUM INTO`, mesmo com o painel no ar;
+- tira a cópia do volume e salva em `~/finance/backups`, fora do Git, com permissão 600;
+- apaga as cópias com mais de 14 dias.
 
-## 4. Migração do dono (sua autorização antes do `--apply`)
+Para apontar o backup para um disco externo, que é o recomendado, e agendar no cron (`crontab -e`):
 
-Ainda no servidor, com `FINANCE_ENV_FILE` exportado e nada no ar:
-
-```bash
-docker compose run --rm --no-deps web node scripts/migrate-owner.mjs --to <UID>
+```
+30 3 * * * cd ~/finance && FINANCE_BACKUP_DIR=/mnt/backup/finance bash deploy/backup.sh >> ~/finance-backup.log 2>&1
 ```
 
-```bash
-docker compose run --rm --no-deps web node scripts/migrate-owner.mjs --to <UID> --apply
-```
+**Restaurar** (ação destrutiva, só com tudo parado). Rode os passos em `~/finance`, com `export FINANCE_ENV_FILE=.env.production`:
 
-Funcionamento:
-- **Sem `--apply`:** só mostra quantas linhas de cada tabela mudam de dono. Nenhum valor aparece.
-- **Com `--apply`:**
-  - antes de mudar qualquer coisa, grava `/data/backup-owner-<data>.sqlite` no volume;
-  - troca o dono numa transação e confere as contagens;
-  - se algo não bater, desfaz tudo.
-- **Segunda execução:** é recusada, porque o destino já tem dados.
+1. Pare tudo:
 
-Para voltar atrás, com tudo parado, restaure pelo backup:
+   ```bash
+   docker compose stop
+   ```
 
-```bash
-docker compose run --rm --no-deps web sh -c 'cp /data/backup-owner-<data>.sqlite /data/finance.sqlite && rm -f /data/finance.sqlite-wal /data/finance.sqlite-shm'
-```
+2. Copie o backup para o volume e apague os arquivos de WAL antigos:
 
-Depois de conferir que os dados aparecem no painel, apague a cópia de importação: `rm ~/finance/apps/web/data/import/finance.sqlite`.
+   ```bash
+   docker compose run --rm --no-deps -v /mnt/backup/finance:/b:ro web sh -c 'cp /b/<arquivo>.sqlite /data/finance.sqlite && rm -f /data/finance.sqlite-wal /data/finance.sqlite-shm'
+   ```
 
-A origem fica como estava, com o dono local, e pode seguir para desenvolvimento.
+3. Suba de novo:
 
-**Subir:**
-
-```bash
-docker compose up -d
-```
-
-```bash
-docker compose ps
-```
-
-O `web` deve aparecer como `healthy`, e o `worker`, como `running`.
-
-## 5. Túnel da Cloudflare (você e o agente)
-
-O Compose publica o web em `127.0.0.1:3000` no servidor. Hoje o hostname aponta para `127.0.0.1:3001` ([decisão](../Context/branches/pluggy/decisions/DEC-20261110-endereco-publico.md)).
-
-1. No painel Zero Trust da Cloudflare, em **Networks → Tunnels**, mude o destino do hostname `finance.vetracompany.com.br` para `http://127.0.0.1:3000`, no túnel cujo conector roda no **servidor**.
-2. **Cuidado com dois conectores no mesmo túnel.** Se esse túnel também tiver um conector ligado em outra máquina, a Cloudflare reparte as requisições entre eles, e parte delas cai na máquina errada. Confira na aba de conectores que só o servidor está ativo. Se precisar, pare o `cloudflared` da outra máquina.
-
-## 6. Webhooks da Pluggy
-
-```bash
-docker compose exec web node scripts/register-webhooks.mjs
-```
-
-Depois, no Dashboard da Pluggy, desative o cadastro antigo `all` em `/connections/pluggy/callback`. Isso exige a sua confirmação.
-
-## 7. Backup periódico
-
-```bash
-cd ~/finance && FINANCE_ENV_FILE=.env.production docker compose exec -T web node -e "new (require('node:sqlite').DatabaseSync)('/data/finance.sqlite').exec(\"VACUUM INTO '/data/backup-\" + new Date().toISOString().slice(0,10) + \".sqlite'\")"
-```
-
-Copie esses arquivos para **outro aparelho** ou disco externo, de preferência criptografado. Um backup no mesmo disco do servidor de casa não protege contra a perda desse disco. Agende o comando no `cron` do servidor, uma vez por dia. Apague os backups antigos do volume depois de copiá-los.
+   ```bash
+   bash deploy/deploy.sh --no-pull
+   ```
 
 ## 8. Aceite do Marco 0
 
@@ -169,9 +146,20 @@ Copie esses arquivos para **outro aparelho** ou disco externo, de preferência c
 | Login pelo 4G | Celular fora do Wi-Fi, `https://finance.vetracompany.com.br`, entrar com o usuário Supabase |
 | Outro e-mail recusado | Tentar outro e-mail: "E-mail ou senha inválidos." |
 | 401 sem sessão | `curl -s -o /dev/null -w "%{http_code}" "https://finance.vetracompany.com.br/api/dashboard?from=2026-11-01&to=2026-11-11"` responde `401` |
-| Sessão estável | Usar, deixar 2 h parado e voltar; depois, no dia seguinte. Sem novo login |
+| Sessão estável | Usar, deixar 2 h parado e voltar. Repetir no dia seguinte. Não pode pedir novo login |
 | Sair revoga | Sair e voltar à página anterior: pede login |
 | Webhook | Pluggy → Events mostra 204, e Conexões mostra "Processado" |
-| Dados preservados | Contagens da migração iguais antes e depois. Visão geral com os mesmos saldos |
-| Desenvolvimento intacto | Na origem, o modo de chave local continua abrindo em `127.0.0.1:3001` |
+| Conta reconectada | Conexões "Conectada", e a Visão geral mostra os mesmos saldos do banco |
 | Volta sozinho | `sudo reboot` no servidor: depois de alguns minutos, o painel responde pelo domínio sem intervenção |
+| Desenvolvimento intacto | Na máquina Linux, o modo de chave local continua abrindo em `127.0.0.1:3001` |
+
+## Apêndice: migrar o banco em vez de reconectar
+
+O script `migrate-owner` continua no código, testado. Ele troca o dono dos dados locais para o UID do Supabase, preservando o Planejamento e as categorias. Para usá-lo:
+1. exporte o banco com `VACUUM INTO`;
+2. leve-o por `scp`;
+3. copie para o volume com `cp -n`;
+4. rode `docker compose run --rm --no-deps web node scripts/migrate-owner.mjs --to <UID>`;
+5. só com autorização, repita com `--apply`.
+
+O roteiro completo está no histórico deste arquivo, no commit `4464dbb`.

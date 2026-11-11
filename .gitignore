@@ -5,3 +5,5 @@ node_modules/
 *.tsbuildinfo
 data/
 !.env.example
+!.env.production.example
+backups/
