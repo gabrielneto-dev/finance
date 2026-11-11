@@ -1,5 +1,6 @@
 import type { Session } from "@supabase/supabase-js";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { disablePush } from "./push";
 import { supabase } from "./supabase";
 
 type State = { session: Session | null; ready: boolean };
@@ -27,8 +28,9 @@ export async function signIn(email: string, password: string) {
   return "E-mail ou senha inválidos.";
 }
 
-/** Encerra a sessão no Supabase e apaga a cópia guardada no aparelho. */
+/** Encerra a sessão no Supabase e apaga a cópia guardada no aparelho. Antes, deixa de receber avisos. */
 export async function signOut() {
+  await disablePush();
   const { error } = await supabase.auth.signOut();
   if (error) await supabase.auth.signOut({ scope: "local" });
 }

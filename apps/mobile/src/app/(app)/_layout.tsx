@@ -1,7 +1,11 @@
+import * as Notifications from "expo-notifications";
+import { useRouter } from "expo-router";
 import { TabList, Tabs, TabSlot, TabTrigger, type TabTriggerSlotProps } from "expo-router/ui";
+import { useEffect } from "react";
 import { Pressable, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { PrefsProvider } from "@/lib/prefs";
+import { pushSupported } from "@/lib/push";
 import { colors, TOUCH } from "@/theme";
 
 // Abas embaixo, com alvos de 48 dp (SPEC-0005, REQ-007).
@@ -16,10 +20,21 @@ function TabButton({ label, symbol, isFocused, ref: _ref, ...props }: TabTrigger
   );
 }
 
+/** Tocar no aviso de transferência abre o Extrato, inclusive com o app fechado. Só no Android: na web, a API não existe. */
+function OpenFromNotification() {
+  const router = useRouter();
+  const response = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (response?.notification.request.content.data?.view === "extrato") router.navigate("/extrato");
+  }, [response, router]);
+  return null;
+}
+
 export default function AppLayout() {
   const insets = useSafeAreaInsets();
   return (
     <PrefsProvider>
+      {pushSupported ? <OpenFromNotification /> : null}
       <Tabs>
         <TabSlot style={{ flex: 1 }} />
         <TabList style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 6) }]}>

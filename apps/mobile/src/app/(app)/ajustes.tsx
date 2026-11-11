@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Linking, Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Button, Card, Header } from "@/components/ui";
 import { config } from "@/lib/config";
 import { usePrefs } from "@/lib/prefs";
+import { disablePush, enablePush, pushEnabled, pushSupported, sendTestPush } from "@/lib/push";
 import { signOut, useSession } from "@/lib/session";
 import { colors, TOUCH } from "@/theme";
 
@@ -30,6 +31,7 @@ export default function Settings() {
             <Switch value={hidden} trackColor={{ true: colors.primary }} />
           </View>
         </Pressable>
+        <Alerts />
         <Button label="Abrir o painel web" variant="secondary" onPress={() => Linking.openURL(config.apiUrl)}
           accessibilityHint="Análises, Planejamento e as demais telas ficam no painel web" />
         <Button label="Sair" variant="secondary" busy={busy}
@@ -37,6 +39,45 @@ export default function Settings() {
           onPress={async () => { setBusy(true); await signOut(); }} />
       </View>
     </SafeAreaView>
+  );
+}
+
+/** Avisos de transferência por push (SPEC-0005, REQ-005). */
+function Alerts() {
+  const [enabled, setEnabled] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  useEffect(() => { pushEnabled().then(setEnabled).catch(() => {}); }, []);
+  const run = async (task: () => Promise<string | null>, success: string, next?: boolean) => {
+    setBusy(true);
+    setMessage(null);
+    const error = await task();
+    setBusy(false);
+    setMessage(error ?? success);
+    if (!error && next !== undefined) setEnabled(next);
+  };
+  return (
+    <Card style={styles.card}>
+      <Text style={styles.value}>Avisos de transferência</Text>
+      {!pushSupported
+        ? <Text style={styles.label}>Disponível no app instalado no Android. A prévia no navegador não recebe avisos.</Text>
+        : <>
+            <Text style={styles.label}>
+              {enabled ? "Ativos neste aparelho. A notificação não mostra o valor." : "Receba um aviso quando entrar ou sair uma transferência."}
+            </Text>
+            {enabled
+              ? <View style={{ gap: 10, marginTop: 6 }}>
+                  <Button label="Enviar aviso de teste" variant="secondary" busy={busy}
+                    onPress={() => run(sendTestPush, "Teste enviado. Deve chegar em instantes.")} />
+                  <Button label="Desativar avisos" variant="secondary" busy={busy}
+                    onPress={() => run(async () => { await disablePush(); return null; }, "Avisos desativados neste aparelho.", false)} />
+                </View>
+              : <View style={{ marginTop: 6 }}>
+                  <Button label="Ativar avisos neste aparelho" busy={busy} onPress={() => run(enablePush, "Avisos ativados.", true)} />
+                </View>}
+          </>}
+      {message ? <Text style={styles.label} accessibilityLiveRegion="polite">{message}</Text> : null}
+    </Card>
   );
 }
 
