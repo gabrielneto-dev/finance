@@ -6,7 +6,12 @@ Quem faz cada passo:
 - **Você:** criar contas, digitar senhas e chaves, e autorizar ações destrutivas.
 - **O agente:** comandos e conferências que não envolvem credenciais.
 
-HIPÓTESE: a produção roda na máquina onde estão o `.env` e o SQLite atuais, com Docker e `cloudflared`. Se for outro servidor, os passos são os mesmos, e o banco é copiado para lá no passo 4.
+A produção roda no **servidor da sua casa** (sua resposta de 2026-11-11). HIPÓTESE: ele tem Docker e roda o `cloudflared`. Se ele não for a máquina que hoje guarda o SQLite atual, o passo 3a leva os dados até ele.
+
+Regras para o servidor de casa:
+- **Não abra portas no roteador.** O túnel só faz conexões de saída. O Compose já publica o web só em `127.0.0.1:3000`.
+- Deixe Docker e `cloudflared` subindo como serviços do sistema, para voltarem sozinhos depois de queda de luz ou reinício.
+- Mantenha o sistema atualizado e acesse por SSH com chave, não por senha.
 
 ## 1. Supabase (você)
 
@@ -61,6 +66,10 @@ Para voltar atrás: com o painel parado, substitua `finance.sqlite` pelo backup 
 
 **Atenção:** depois da migração, os dados deixam de aparecer no modo de chave local, porque o dono agora é o usuário Supabase. Para desenvolver, use uma cópia sintética ou o backup.
 
+## 3a. Levar os dados para o servidor de casa (se for outra máquina)
+
+Na máquina que tem o banco atual, com web e worker parados, gere uma cópia única com `VACUUM INTO`. Envie-a por `scp` pela rede de casa, junto com o `.env.production`. Não use Git, e-mail nem nuvem: o repositório é público, e o banco tem dados bancários reais. No servidor, coloque a cópia em `apps/web/data/finance.sqlite` e rode a migração do passo 3 ali. Pelo contexto do projeto, o banco mais recente é o da máquina Linux, com o Item MeuPluggy vinculado em 2026-11-10.
+
 ## 4. Subir web e worker (agente, com você por perto)
 
 ```bash
@@ -101,7 +110,7 @@ Depois, no Dashboard da Pluggy, desative o cadastro antigo `all` em `/connection
 FINANCE_ENV_FILE=.env.production docker compose exec -T web node -e "new (require('node:sqlite').DatabaseSync)('/data/finance.sqlite').exec(\"VACUUM INTO '/data/backup-\" + new Date().toISOString().slice(0,10) + \".sqlite'\")"
 ```
 
-Copie esses arquivos para fora do servidor. Um backup no mesmo disco não protege contra a perda do disco.
+Copie esses arquivos para **outro aparelho** ou disco externo, de preferência criptografado. Um backup no mesmo disco do servidor de casa não protege contra a perda desse disco. Agende o comando no `cron` do servidor, uma vez por dia.
 
 ## 8. Aceite do Marco 0
 

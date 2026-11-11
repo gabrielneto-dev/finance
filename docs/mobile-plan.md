@@ -148,7 +148,7 @@ FCM (serviço de push do Chrome) ◀──Web Push (VAPID, RFC 8291)── worke
 | --- | --- | --- | --- | --- |
 | Desenvolvimento | `127.0.0.1:3001` na sua máquina | Chave local | A do `.env` local | SQLite local. Testes automáticos sempre com dados sintéticos |
 | Homologação (HIPÓTESE, confirmar) | Mesmo host da produção, outro projeto Compose, outro volume e o subdomínio `homolog.` no túnel | Segundo projeto Supabase | `PLUGGY_SANDBOX=1`, **sem webhook**, só pela consulta periódica, para não receber os eventos da produção | Sintéticos (Pluggy Bank Sandbox) |
-| Produção | `finance.vetracompany.com.br` (HIPÓTESE: na máquina Linux, onde estão o `.env` e o SQLite atuais) | Supabase, só o seu e-mail | Real, MeuPluggy | Reais |
+| Produção | `finance.vetracompany.com.br`, no **servidor da sua casa** (FATO: sua resposta de 2026-11-11), atrás do Cloudflare Tunnel | Supabase, só o seu e-mail | Real, MeuPluggy | Reais |
 
 Notas:
 - O push dá para testar no Chrome de desktop em `127.0.0.1`, que conta como contexto seguro. A documentação do Next também mostra `next dev --experimental-https` (FATO).
@@ -304,6 +304,9 @@ Em dias de trabalho (INFERÊNCIA):
 | --- | --- | --- |
 | Painel com dados bancários reais exposto na internet | Média / alto | Supabase só com o seu e-mail e cadastro desligado, Proxy de sessão, cookies `secure` `httpOnly`, checagem de `Origin` mantida e backup do volume. Opcional: Cloudflare WAF ou limite de taxa no `/login` |
 | Sessão caindo por reuso de refresh token | Alta sem o Proxy / médio | Proxy no Marco 0 e aceite com 2 h e 1 dia de uso |
+| Servidor de casa fora do ar (luz, internet, reinício) | Média / médio | O túnel só faz conexões de saída, sem abrir porta no roteador e funcionando atrás de CGNAT. Compose com `restart: unless-stopped`, e Docker e `cloudflared` como serviços do sistema. Ao voltar, a consulta periódica do worker (SPEC-0002) recupera o que a Pluggy sincronizou, e os avisos são enviados nessa importação. Opcional: nobreak |
+| Perda do disco do servidor de casa | Baixa / alto | Backup diário por `VACUUM INTO` copiado para **outro aparelho** ou disco externo, criptografado. O `.env.production` fica guardado à parte |
+| Projeto Supabase gratuito pausado por inatividade | Média / alto (o login para) | A documentação oficial diz que projetos gratuitos pausam com pouca atividade em 7 dias, com e-mail de aviso antes, e voltam pelo painel. INFERÊNCIA: o uso diário do login deve contar como atividade, mas não há garantia. Saídas: plano Pro, que nunca pausa, ou trocar o login por um que não dependa de serviço externo. Fica para você decidir |
 | Migração do dono corromper ou perder dados | Baixa / alto | `VACUUM INTO` antes, simulação, contagens antes e depois, sua autorização e retorno pelo backup |
 | Push atrasado ou perdido pela economia de bateria (Xiaomi, Samsung) | Média / alto, porque é requisito | Urgência `high` e TTL, observação de 7 dias, orientação para tirar o Chrome da otimização de bateria. **Gatilho do plano B** |
 | Retorno do OAuth abrir no Chrome em vez do app | Média / médio | Escopo `/` no manifest e teste em homologação. A sessão é a mesma, então a conexão conclui. Se ficar ruim, é **gatilho do plano B** |
@@ -320,7 +323,7 @@ O plano B é o **Expo**, com o SDK oficial `react-native-pluggy-connect` 1.6.0 e
 
 Nenhuma bloqueia a aprovação do plano. Todas precisam de resposta antes do marco indicado.
 
-1. **Host da produção** (Marco 0): a máquina Linux com o túnel, como suponho, ou outro servidor?
+1. ~~Host da produção~~: respondido em 2026-11-11, é o servidor de casa. Faltam os detalhes dele: sistema e arquitetura, se já tem Docker e `cloudflared`, e se é a mesma máquina Linux que hoje guarda o SQLite e o `.env` atuais.
 2. **Migração do dono** (Marco 0): opção A (script) ou B (reconectar e perder o Planejamento)?
 3. **Homologação** (Marco 0 ou 4): vale manter um segundo ambiente, ou testar o OAuth direto na produção?
 4. **Celular de teste** (Marco 1): qual modelo e qual versão do Android?
@@ -330,7 +333,7 @@ Nenhuma bloqueia a aprovação do plano. Todas precisam de resposta antes do mar
 ## Fontes
 
 - Next.js: [PWA](https://nextjs.org/docs/app/guides/progressive-web-apps) · [proxy.ts](https://nextjs.org/docs/app/api-reference/file-conventions/proxy)
-- Supabase: [cliente SSR e Proxy](https://supabase.com/docs/guides/auth/server-side/creating-a-client) · [sessões e refresh token](https://supabase.com/docs/guides/auth/sessions)
+- Supabase: [cliente SSR e Proxy](https://supabase.com/docs/guides/auth/server-side/creating-a-client) · [sessões e refresh token](https://supabase.com/docs/guides/auth/sessions) · [pausa de projetos gratuitos](https://supabase.com/docs/guides/platform/free-project-pausing)
 - web.dev: [critérios de instalação](https://web.dev/articles/install-criteria) · [WebAPKs](https://web.dev/articles/webapks) · [visão geral do push](https://web.dev/articles/push-notifications-overview)
 - [Chrome: mudança nos critérios de instalação e Lighthouse](https://developer.chrome.com/blog/update-install-criteria)
 - [MDN: Push API](https://developer.mozilla.org/en-US/docs/Web/API/Push_API)
