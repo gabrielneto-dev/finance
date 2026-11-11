@@ -89,4 +89,15 @@ test("conexões ativas com nome escolhido, situação e sincronização", () => 
   assert.equal(rows[0].name, "Meu banco");
   assert.equal(rows[0].status, "Conectada");
   assert.match(rows[0].synced, /^Sincronizada em 10\/11\/2026/);
+  assert.equal(rows[0].reconnect, false);
+  assert.equal(rows[0].meuPluggy, false);
+});
+
+test("ações da conexão seguem as regras do web", () => {
+  const meu = connectionRows({ ...data, connections: [{ ...data.connections[0], name: "MeuPluggy" }] })[0];
+  assert.equal(meu.meuPluggy, true);
+  const broken = connectionRows({ ...data, connections: [{ ...data.connections[0], name: "MeuPluggy", status: "RECONECTAR" }] })[0];
+  assert.deepEqual([broken.reconnect, broken.meuPluggy, broken.status], [true, false, "Reconectar"]);
+  const importing = connectionRows({ ...data, connections: [{ ...data.connections[0], status: "IMPORTANDO" }] })[0];
+  assert.equal(importing.importing, true);
 });

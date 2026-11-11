@@ -18,6 +18,7 @@ function Routes() {
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
       <Stack.Protected guard={Boolean(session)}>
         <Stack.Screen name="(app)" />
+        <Stack.Screen name="conectar" />
       </Stack.Protected>
       <Stack.Protected guard={!session}>
         <Stack.Screen name="login" />

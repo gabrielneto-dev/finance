@@ -126,5 +126,9 @@ export function connectionRows(data: DashboardData) {
     status: STATES[row.status] ?? row.status,
     ok: row.status === "CONECTADA",
     synced: row.syncedAt ? "Sincronizada em " + timestamp(row.syncedAt) : "Ainda não sincronizada",
+    // Mesmas regras do painel web: reconectar quando o banco pede; atualizar no Meu Pluggy só nessa conexão.
+    reconnect: row.status === "RECONECTAR",
+    importing: row.status === "IMPORTANDO",
+    meuPluggy: row.name === "MeuPluggy" && row.status !== "RECONECTAR",
   }));
 }

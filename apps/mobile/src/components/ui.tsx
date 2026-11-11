@@ -2,15 +2,16 @@ import type { ReactNode } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { colors, TOUCH } from "@/theme";
 
-export function Button({ label, onPress, busy, variant = "primary", accessibilityHint }: {
-  label: string; onPress: () => void; busy?: boolean; variant?: "primary" | "secondary"; accessibilityHint?: string;
+export function Button({ label, onPress, busy, disabled, variant = "primary", accessibilityHint }: {
+  label: string; onPress: () => void; busy?: boolean; disabled?: boolean; variant?: "primary" | "secondary"; accessibilityHint?: string;
 }) {
   const primary = variant === "primary";
+  const off = Boolean(busy || disabled);
   return (
     <Pressable
       accessibilityRole="button" accessibilityLabel={label} accessibilityHint={accessibilityHint}
-      accessibilityState={{ disabled: busy, busy }} disabled={busy} onPress={onPress}
-      style={({ pressed }) => [styles.button, primary ? styles.primary : styles.secondary, pressed && styles.pressed]}>
+      accessibilityState={{ disabled: off, busy }} disabled={off} onPress={onPress}
+      style={({ pressed }) => [styles.button, primary ? styles.primary : styles.secondary, pressed && styles.pressed, disabled && styles.disabled]}>
       {busy
         ? <ActivityIndicator color={primary ? colors.primaryText : colors.primary} />
         : <Text style={[styles.buttonText, { color: primary ? colors.primaryText : colors.primary }]}>{label}</Text>}
@@ -77,6 +78,7 @@ const styles = StyleSheet.create({
   primary: { backgroundColor: colors.primary },
   secondary: { backgroundColor: colors.secondary, borderWidth: 1, borderColor: colors.border },
   pressed: { opacity: 0.8 },
+  disabled: { opacity: 0.45 },
   buttonText: { fontSize: 16, fontWeight: "600" },
   card: { backgroundColor: colors.card, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 16 },
   notice: { gap: 10 },
